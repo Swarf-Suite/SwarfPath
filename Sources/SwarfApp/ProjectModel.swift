@@ -356,6 +356,7 @@ final class ProjectModel: ObservableObject {
         let material = CAMCore.Material.named(job.stock.materialID)
         // A pocket with a hogging bit in the library: hogging first, then the flat bit finishes (two files).
         let ops = kind == .pocket && hog != nil ? JobTemplates.pockets(flat: tool, hog: hog, material: material)
+            : kind == .cutout && hog != nil ? JobTemplates.cutouts(flat: tool, hog: hog, material: material)
             : [CAMCore.Operation(kind: kind, tool: tool, material: material)]
         let op = ops[0]
         // Dowel holes are always drilled first, while the stock is still where side A will be machined.
@@ -417,6 +418,8 @@ final class ProjectModel: ObservableObject {
         op.enabled = true
         op.tool = tool
         op.restFrom = src.tool
+        op.restFromOp = src.id
+        op.restExtraStock = nil
         op.cutting = CAMCore.Material.named(job.stock.materialID).apply(tool.defaults)
         updateJob("Add Rest Clearing") { j in
             let i = j.operations.firstIndex { $0.id == src.id }.map { $0 + 1 } ?? j.operations.count
@@ -452,7 +455,7 @@ final class ProjectModel: ObservableObject {
         guard let ctx = context else { return }
         // Operations already followed by a rest pass from their tool, on their side, need no suggestion.
         func followed(_ o: CAMCore.Operation) -> Bool {
-            job.operations.contains { $0.restFrom?.id == o.tool.id && $0.machiningSide == o.machiningSide }
+            job.operations.contains { $0.restFromOp == o.id || ($0.restFromOp == nil && $0.restFrom?.id == o.tool.id && $0.machiningSide == o.machiningSide) }
         }
         let candidates: [(CAMCore.Operation, Tool)] = job.operations.compactMap { o in
             guard o.enabled, o.kind == .pocket || o.kind == .roughing, o.restFrom == nil, !followed(o),
@@ -601,8 +604,51 @@ final class ProjectModel: ObservableObject {
         if resetCutting { announceScaling(tool) }
         updateJob("Change Tool") { j in
             guard let i = j.operations.firstIndex(where: { $0.id == id }) else { return }
+            let was = j.operations[i].tool.kind
             j.operations[i].tool = tool
             if resetCutting { Self.resetCutting(&j.operations[i], tool: tool, material: .named(j.stock.materialID)) }
+            // A hogging bit leaves skins for the finishing bit; switching back to another bit drops them.
+            let k = j.operations[i].kind
+            if tool.kind == .roughing && was != .roughing {
+                j.operations[i].applyHogSkins()
+            } else if was == .roughing && tool.kind != .roughing && (k == .pocket || k == .cutout) {
+                j.operations[i].stockToLeaveXY = 0
+                j.operations[i].stockToLeaveZ = 0
+            }
+        }
+    }
+
+    /// A pocket or cutout cut with a hogging bit that no later operation finishes.
+    func needsFinishingPass(_ op: CAMCore.Operation) -> Bool {
+        op.tool.kind == .roughing && (op.kind == .pocket || op.kind == .cutout)
+            && !job.operations.contains { $0.restFromOp == op.id }
+    }
+
+    /// The flat bit a hogging operation's finishing pass uses: the library's flat closest to the hogging bit's size.
+    func finishingTool(after op: CAMCore.Operation) -> Tool? {
+        let lib = ToolLibraryStore.shared.library
+        return lib.closest(kind: .flat, diameter: op.tool.diameter) ?? ToolLibrary.starter.closest(kind: .flat, diameter: op.tool.diameter)
+    }
+
+    /// Adds the finishing pass after a hogging pocket or cutout: same area, a flat bit, following it exactly.
+    func addFinishingPass(after id: UUID) {
+        guard let src = job.operations.first(where: { $0.id == id }), let flat = finishingTool(after: src) else { return }
+        let fin = JobTemplates.finishing(after: src, with: flat, material: .named(job.stock.materialID))
+        updateJob("Add Finishing Pass") { j in
+            let i = j.operations.firstIndex { $0.id == src.id }.map { $0 + 1 } ?? j.operations.count
+            j.operations.insert(fin, at: i)
+        }
+        selection = .operation(fin.id)
+        announceScaling(flat)
+    }
+
+    /// Earlier operations a rest pass (or, for a cutout, a finishing cutout) can follow: same side, enabled, nearest
+    /// first.
+    func restOperationChoices(for op: CAMCore.Operation) -> [CAMCore.Operation] {
+        let mine = job.operations.firstIndex { $0.id == op.id } ?? job.operations.count
+        return job.operations.prefix(mine).reversed().filter { o in
+            o.enabled && o.machiningSide == op.machiningSide
+                && (op.kind == .cutout ? o.kind == .cutout : o.kind.supportsRest)
         }
     }
 
@@ -744,7 +790,15 @@ final class ProjectModel: ObservableObject {
         enc.outputFormatting = .sortedKeys
         var o = op
         o.name = ""
-        let own = String(decoding: (try? enc.encode(o)) ?? Data(), as: UTF8.self) + contextKey
+        var own = String(decoding: (try? enc.encode(o)) ?? Data(), as: UTF8.self) + contextKey
+        // A rest pass that follows an earlier operation depends on that operation's settings and position too.
+        if let id = op.restFromOp {
+            let i = job.operations.firstIndex { $0.id == id }
+            var r = i.map { job.operations[$0] }
+            r?.name = ""
+            own += "#ref\(i ?? -1)|" + String(decoding: (try? enc.encode(r)) ?? Data(), as: UTF8.self)
+                + "|\(job.operations.firstIndex { $0.id == op.id } ?? -1)"
+        }
         return op.machiningSide == .b && op.kind != .dowelHoles ? own + "#B" + Self.cutoutsKey(job) : own
     }
 

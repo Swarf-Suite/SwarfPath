@@ -39,8 +39,9 @@ Rest machining is in (`Rest.swift`): a smaller tool cuts only what a larger one 
 - **Uncut stock and the shank.** The shank is kept off the model, but not off leftover material that this tool itself
   can't reach. That needs leftover deep beside a wall within a shank radius of where the bit cuts; it hasn't come up in
   tests.
-- **Reference by operation, not tool.** A rest pass follows a tool and uses its own area and depth. Following the
-  earlier operation's actual settings (or its simulated stock) would remove the need to keep them matched.
+- **Following the simulated stock.** A rest pass that follows an operation models that operation's own settings
+  exactly, but not what earlier passes before it removed. Following the simulated stock would cover chains of three or
+  more tools.
 
 ## Cutout trench
 
@@ -62,8 +63,11 @@ The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:
 - **Ball nose at shallow depth.** A ball cuts with less than its full diameter near the tip, so its real chip is thinner;
   the calculator treats it as full diameter.
 - **Machine Z speed.** Profiles have one max feed; plunge is capped by bit size and at 800 mm/min, not by the machine's Z limit.
-- **Hogging bit for 3D roughing then pockets:** the finishing pass for a hogged pocket is added automatically, but a
-  pocket whose tool is changed to a hogging bit later in the inspector gets only the warning, not the finishing pass.
+- **Hogging on the machine.** Pockets leave 0.3 mm on walls and 3 mm on floors, and cutouts stop 3 mm above the stock
+  bottom (`Operation.applyHogSkins`). Check on the FoxAlien that 3 mm is enough for a careless re-zero and not so much
+  that the flat struggles, and that the flat's single ramp through the hogged slot's 0.2–0.3 mm wall skin cuts cleanly.
+- **Stick-out is per tool, not per setup.** The collet warning uses the tool library's stick-out; if a bit is set
+  further out for a deep job, the library has to be edited.
 
 ## App
 

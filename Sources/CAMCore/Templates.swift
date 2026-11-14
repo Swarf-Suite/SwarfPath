@@ -40,9 +40,9 @@ public enum JobTemplates {
         return [dowels] + side + back
     }
 
-    /// Pocketing with `flat`; with a hogging bit, the hogging bit clears first and leaves a skin
-    /// (`Operation.hogSkin`), then `flat` takes the skin and anything the hogging bit couldn't reach. They are separate
-    /// tools, so they go in separate files for the bit swap.
+    /// Pocketing with `flat`; with a hogging bit, the hogging bit clears first and leaves skins (`Operation.hogSkin` on
+    /// walls, `Operation.hogFloorSkin` on floors), then `flat` follows that operation (`restFromOp`) and takes the skins
+    /// and anything the hogging bit couldn't reach. They are separate tools, so they go in separate files for the bit swap.
     public static func pockets(flat: Tool, hog: Tool?, material: Material) -> [Operation] {
         guard let hog else {
             var p = Operation(kind: .pocket, tool: flat, material: material)
@@ -51,11 +51,39 @@ public enum JobTemplates {
         }
         var rough = Operation(kind: .pocket, tool: hog, material: material)
         rough.name = "Pockets (hogging)"
-        var fin = Operation(kind: .pocket, tool: flat, material: material)
-        fin.name = "Pockets (finish)"
-        fin.restFrom = hog
-        fin.restLeftStock = Operation.hogSkin
-        return [rough, fin]
+        return [rough, finishing(after: rough, with: flat, material: material)]
+    }
+
+    /// Cutout with `flat`; with a hogging bit, the hogging bit cuts the slot to `Operation.hogFloorSkin` above the stock
+    /// bottom with a skin on the wall, and `flat` follows it: the wall to size, and the rest of the depth with the tabs.
+    public static func cutouts(flat: Tool, hog: Tool?, material: Material) -> [Operation] {
+        var c = Operation(kind: .cutout, tool: flat, material: material)
+        c.name = "Cutout"
+        c.tabs.enabled = true
+        guard let hog else { return [c] }
+        var rough = Operation(kind: .cutout, tool: hog, material: material)
+        rough.name = "Cutout (hogging)"
+        rough.tabs = c.tabs
+        return [rough, finishing(after: rough, with: flat, material: material)]
+    }
+
+    /// The finishing pass after a hogging operation: same kind and area, the finishing tool, following `hogged`.
+    public static func finishing(after hogged: Operation, with tool: Tool, material: Material) -> Operation {
+        var fin = Operation(kind: hogged.kind, tool: tool, material: material)
+        fin.name = hogged.kind == .cutout ? "Cutout" : "\(hogged.kind.displayName) (finish)"
+        if hogged.name.hasPrefix("Pockets") { fin.name = "Pockets (finish)" }
+        fin.boundary = hogged.boundary
+        fin.boundaryMargin = hogged.boundaryMargin
+        fin.floorZ = hogged.floorZ
+        fin.maxDepth = hogged.maxDepth
+        fin.regionIDs = hogged.regionIDs
+        fin.side = hogged.side
+        fin.tabs = hogged.tabs
+        fin.cutHoles = hogged.cutHoles
+        fin.throughDepth = hogged.throughDepth
+        fin.restFromOp = hogged.id
+        fin.restFrom = hogged.tool
+        return fin
     }
 
     static func singleSide(_ ctx: CAMContext, library: ToolLibrary, material: Material) -> [Operation] {
@@ -71,6 +99,9 @@ public enum JobTemplates {
             f.name = "Face stock"
             ops.append(f)
         }
+        // Hogging work first (one bit swap); its cutout stops above the stock bottom, so the part stays held.
+        let cutouts = cutouts(flat: flat6, hog: hog, material: material)
+        var finishOps: [Operation] = []
         if t.hasCurvedTop {
             var r = Operation(kind: .roughing, tool: hog ?? flat6, material: material)
             r.name = "Rough"
@@ -79,20 +110,22 @@ public enum JobTemplates {
             p.name = "Finish (parallel)"
             p.rasterAngle = 45
             p.slopeLimit = 50
-            ops.append(p)
+            finishOps.append(p)
             var w = Operation(kind: .waterlineFinish, tool: ball, material: material)
             w.name = "Finish (steep walls)"
             w.slopeLimit = 50
             w.cutting.stepdown = 0.3
-            ops.append(w)
+            finishOps.append(w)
         } else if t.hasCavities || t.topBelowStock {
-            ops += pockets(flat: flat6, hog: hog, material: material)
+            let p = pockets(flat: flat6, hog: hog, material: material)
+            ops.append(p[0])
+            finishOps += p.dropFirst()
         }
-        var c = Operation(kind: .cutout, tool: flat6, material: material)
-        c.name = "Cutout"
-        c.tabs.enabled = true
-        ops.append(c)
-        return ops
+        // The hogging cutout goes with the hogging work; the finishing cutout always comes last.
+        if cutouts.count > 1 { ops.append(cutouts[0]) }
+        // Facing uses the flat: put it with the finishing tools when a hogging bit starts the job.
+        if hog != nil, let f = ops.firstIndex(where: { $0.kind == .facing }) { finishOps.insert(ops.remove(at: f), at: 0) }
+        return ops + finishOps + [cutouts[cutouts.count - 1]]
     }
 }
 

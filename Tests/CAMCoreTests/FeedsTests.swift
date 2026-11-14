@@ -153,14 +153,14 @@ import Testing
         var job = Job()
         job.quality = .draft
         let mesh = RestMachiningTests.cavityPlate()
-        let probe = CAMContext(raw: mesh, job: job)
-        let ops = JobTemplates.fullProcessing(probe, library: library, material: .named("mdf"))
+        let ops = JobTemplates.fullProcessing(CAMContext(raw: mesh, job: job), library: library, material: .named("mdf"))
         let rough = try #require(ops.first { $0.name == "Pockets (hogging)" })
         let fin = try #require(ops.first { $0.name == "Pockets (finish)" })
-        #expect(rough.tool.kind == .roughing && rough.stockToLeaveZ == Operation.hogSkin && rough.stockToLeaveXY == Operation.hogSkin)
-        #expect(fin.tool.kind == .flat && fin.restFrom == Self.hog && fin.restLeftStock == Operation.hogSkin)
-        #expect(ops.firstIndex { $0.id == rough.id }! + 1 == ops.firstIndex { $0.id == fin.id }!)
-        #expect(ops.first { $0.kind == .cutout }?.tool.kind == .flat)
+        #expect(rough.tool.kind == .roughing && rough.stockToLeaveZ == Operation.hogFloorSkin && rough.stockToLeaveXY == Operation.hogSkin)
+        #expect(fin.tool.kind == .flat && fin.restFromOp == rough.id && fin.restLeftStock == 0)
+        // All the hogging work, then the finishing bit: one swap. The flat cutout is last.
+        #expect(ops.map(\.tool.kind) == [.roughing, .roughing, .flat, .flat])
+        #expect(ops.last?.kind == .cutout && ops.last?.restFromOp == ops[1].id && ops[1].kind == .cutout)
 
         job.operations = [rough, fin]
         let ctx = CAMContext(raw: mesh, job: job)
@@ -199,6 +199,89 @@ import Testing
         let files = post.process([tpRough, tpFin])
         #expect(files.count == 2)
         #expect(files[0].name.contains("T20") && files[1].name.contains("T\(fin.tool.number)"))
+    }
+
+    /// The hogging bit's cutout stops 3 mm above the stock bottom with a skin on the wall; the flat cutout after it cuts
+    /// only below that (plus the wall), cuts the part free, and nothing is gouged.
+    @Test func hogCutoutThenFlat() throws {
+        var job = Job()
+        job.quality = .draft
+        let mesh = STL.box(V3(60, 40, 18))
+        let ops = JobTemplates.cutouts(flat: ToolLibrary.starter.tools[0], hog: Self.hog, material: .named("mdf"))
+        #expect(ops.count == 2 && ops[0].tool.kind == .roughing && ops[1].restFromOp == ops[0].id)
+        #expect(ops[0].stockToLeaveZ == Operation.hogFloorSkin && ops[0].stockToLeaveXY == Operation.hogSkin)
+        job.operations = ops
+        let ctx = CAMContext(raw: mesh, job: job)
+        let hog = try ctx.generate(ops[0]), flat = try ctx.generate(ops[1])
+        #expect(abs((hog.moves.map(\.to.z).min() ?? 0) - Operation.hogFloorSkin) < 1e-6)
+        #expect(!hog.warnings.contains { $0.contains("hogging") })
+        // The flat's roughing starts where the hog stopped: much less cutting than the whole cutout.
+        var plain = ops[1]; plain.restFromOp = nil; plain.restFrom = nil
+        let alone = try ctx.generate(plain)
+        #expect(flat.stats(rapidRate: 5000, acceleration: 500).cutLength < alone.stats(rapidRate: 5000, acceleration: 500).cutLength * 0.8)
+        var sim = StockSimulator(stockSize: ctx.placed.stockSize, resolution: 0.25)
+        sim.run([hog, flat])
+        let a = sim.analyze(model: ctx.placed, tolerance: 0.1)
+        #expect(a.gougeCells == 0)
+        var simAlone = StockSimulator(stockSize: ctx.placed.stockSize, resolution: 0.25)
+        simAlone.run([alone])
+        #expect(a.leftoverCells <= simAlone.analyze(model: ctx.placed, tolerance: 0.1).leftoverCells + 10)
+        // Hog zeroed 0.2 mm low: still nothing gouged.
+        var low = hog
+        low.moves = low.moves.map { var m = $0; m.to.z -= 0.2; return m }
+        var sim2 = StockSimulator(stockSize: ctx.placed.stockSize, resolution: 0.25)
+        sim2.run([low, flat])
+        #expect(sim2.analyze(model: ctx.placed, tolerance: 0.1).gougeCells == 0)
+    }
+
+    /// A bit whose shank is no wider than its cutter may cut below its flutes: the limit is the collet.
+    @Test func deepCutLimitIsTheColletForStraightShanks() throws {
+        var hog = Self.hog
+        hog.fluteLength = 35; hog.stickout = 50
+        var job = Job()
+        job.quality = .draft
+        let mesh = STL.box(V3(60, 40, 45))
+        var op = Operation(kind: .cutout, tool: hog)
+        op.stockToLeaveZ = Operation.hogFloorSkin
+        job.operations = [op]
+        let ctx = CAMContext(raw: mesh, job: job)
+        let w = try ctx.generate(op).warnings  // 42 mm deep: past the flutes, inside the stick-out
+        #expect(!w.contains { $0.contains("flute length") || $0.contains("collet") }, "\(w)")
+        hog.stickout = 40
+        op.tool = hog
+        job.operations = [op]
+        let w2 = try CAMContext(raw: mesh, job: job).generate(op).warnings
+        #expect(w2.contains { $0.contains("collet") })
+        // A wide shank still can't go below the flutes on a cutout.
+        var small = ToolLibrary.starter.tools[0]
+        small.diameter = 3; small.shankDiameter = 6; small.fluteLength = 12; small.stickout = 60
+        var c = Operation(kind: .cutout, tool: small)
+        c.cutting.stepdown = 3
+        job.operations = [c]
+        #expect(try CAMContext(raw: mesh, job: job).generate(c).warnings.contains { $0.contains("flute length") })
+    }
+
+    @Test func restByOperationFollowsItsSettings() throws {
+        var job = Job()
+        job.quality = .draft
+        let mesh = RestMachiningTests.cavityPlate()
+        var rough = Operation(kind: .pocket, tool: Self.hog)
+        rough.name = "hog"
+        let fin = JobTemplates.finishing(after: rough, with: ToolLibrary.starter.tools[0], material: .named("mdf"))
+        job.operations = [rough, fin]
+        let ctx = CAMContext(raw: mesh, job: job)
+        let ref = try #require(ctx.restReference(fin))
+        #expect(ref.id == rough.id && ref.stockToLeaveZ == Operation.hogFloorSkin)
+        #expect(ctx.restField(fin) != nil)
+        // Out of order, or turned off: no reference, and a warning.
+        job.operations = [fin, rough]
+        let swapped = CAMContext(raw: mesh, job: job)
+        #expect(swapped.restReference(fin) == nil)
+        #expect(try swapped.generate(fin).warnings.contains { $0.contains("cuts everything") })
+        // Projects saved before it existed still open.
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Operation(kind: .pocket, tool: Self.hog))) as! [String: Any]
+        json.removeValue(forKey: "restFromOp")
+        #expect(try JSONDecoder().decode(Operation.self, from: JSONSerialization.data(withJSONObject: json)).restFromOp == nil)
     }
 
     @Test func hogWithoutASkinIsWarned() throws {

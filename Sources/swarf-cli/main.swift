@@ -209,6 +209,8 @@ do {
             r.name = op.name + " rest"
             r.tool = small
             r.restFrom = op.tool
+            r.restFromOp = op.id
+            r.restExtraStock = nil
             r.cutting = material.apply(small.defaults)
             ops.append(r)
         }

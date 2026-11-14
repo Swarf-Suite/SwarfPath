@@ -41,17 +41,34 @@ extension CAMContext {
         return d.map { v in v <= Grid2D.none / 2 ? top : min(top, -v) }
     }
 
-    /// The leftover material for a rest-machining operation (nil when `op.restFrom` is not set). Cached.
-    public func restField(_ op: Operation) -> RestField? {
-        guard op.kind.supportsRest, let ref = op.restFrom else { return nil }
-        var refOp = op
-        refOp.tool = ref
-        refOp.restFrom = nil
-        refOp.restExtraStock = nil
+    /// The earlier pass a rest-machining operation follows, as the engine should model it: the referenced operation
+    /// itself (`restFromOp`, same side, earlier in the job), or this operation with the larger tool (`restFrom`) plus
+    /// any skin it left on purpose. nil when neither is set or the reference is missing.
+    public func restReference(_ op: Operation) -> Operation? {
+        if let id = op.restFromOp {
+            let me = job.operations.firstIndex { $0.id == op.id } ?? job.operations.count
+            guard let i = job.operations.firstIndex(where: { $0.id == id }), i < me else { return nil }
+            var r = job.operations[i]
+            guard r.enabled, r.machiningSide == op.machiningSide, r.kind != .drill, r.kind != .dowelHoles, r.kind != .vcarve else { return nil }
+            r.restFrom = nil; r.restFromOp = nil; r.restExtraStock = nil
+            return r
+        }
+        guard let ref = op.restFrom else { return nil }
+        var r = op
+        r.tool = ref
+        r.restFrom = nil
+        r.restExtraStock = nil
         // The larger tool's pass may have left a skin on purpose (a hogging bit); this operation takes that too.
         let extra = op.restLeftStock
-        refOp.stockToLeaveXY += extra
-        refOp.stockToLeaveZ += extra
+        r.stockToLeaveXY += extra
+        r.stockToLeaveZ += extra
+        return r
+    }
+
+    /// The leftover material for a rest-machining operation (nil when it has no reference). Cached.
+    public func restField(_ op: Operation) -> RestField? {
+        guard op.kind.supportsRest, let refOp = restReference(op), refOp.kind.supportsRest else { return nil }
+        let ref = refOp.tool
         let key = fieldKey(op) + "#rest#" + fieldKey(refOp) + "\(ref.shankDiameter)/\(ref.fluteLength)"
         lock.lock()
         if let r = restCache[key] { lock.unlock(); return r }
@@ -91,9 +108,13 @@ extension CAMContext {
 
     /// What a rest-machining operation should tell the user, or nil.
     func restWarning(_ op: Operation) -> String? {
-        guard let ref = op.restFrom, let rf = restField(op) else { return nil }
+        if op.restFromOp != nil && restReference(op) == nil {
+            return "The operation this one follows is missing, turned off, later in the job, or on the other side; this one cuts everything instead."
+        }
+        guard let refOp = restReference(op), let rf = restField(op) else { return nil }
+        let ref = refOp.tool
         var parts: [String] = []
-        if rf.leftoverArea < 0.5 && op.restLeftStock == 0 {
+        if rf.leftoverArea < 0.5 && refOp.stockToLeaveXY <= op.stockToLeaveXY && refOp.stockToLeaveZ <= op.stockToLeaveZ {
             parts.append(String(format: "Nothing left for this tool: the Ø%g mm %@ already reaches everywhere it can.", ref.diameter,
                                 ref.kind.displayName.lowercased()))
         }

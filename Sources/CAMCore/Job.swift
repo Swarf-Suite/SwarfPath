@@ -194,6 +194,11 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
     /// tool could not reach (tight corners, narrow slots, concave curves), using this operation's own area and depth
     /// settings. Pockets, 3D roughing and both 3D finishes support it. nil = cut everything (older projects).
     public var restFrom: Tool? = nil
+    /// Rest machining from an earlier operation (same side): this operation cuts only what that one left, taking its
+    /// tool, area, depth and stock to leave exactly as set there. Takes precedence over `restFrom`, which then holds a copy
+    /// of that operation's tool for display. A cutout referencing an earlier cutout cuts only below where that one
+    /// stopped, plus its wall passes. nil = not set (older projects).
+    public var restFromOp: UUID? = nil
     /// Rest machining: stock (mm, on walls and floors) the larger tool's pass left on purpose, as a hogging bit does
     /// so that the finishing bit sets the final size even if Z is re-zeroed slightly differently after the bit swap.
     /// This operation then also takes that skin. nil = 0.
@@ -209,9 +214,24 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
         set { side = newValue == .a ? nil : newValue }
     }
 
-    /// Stock a hogging (roughing) bit leaves on walls and floors for the finishing bit (mm). Covers a slightly different
-    /// Z zero after the bit swap.
+    /// Stock a hogging (roughing) bit leaves on walls for the finishing bit (mm): its corn-cob flutes leave a rough wall.
     public static let hogSkin = 0.3
+    /// Stock a hogging bit leaves above pocket floors and the stock bottom (mm): Z is rarely re-zeroed exactly the same
+    /// after the bit swap, and the finishing bit sets the final depth.
+    public static let hogFloorSkin = 3.0
+
+    /// Sets what a hogging bit leaves for the finishing bit (pockets: wall and floor skins; cutouts: wall skin, and it
+    /// stops above the stock bottom). Other tools and kinds are left as they are.
+    public mutating func applyHogSkins() {
+        guard tool.kind == .roughing else { return }
+        switch kind {
+        case .pocket, .cutout:
+            stockToLeaveXY = Self.hogSkin; stockToLeaveZ = Self.hogFloorSkin
+        case .roughing:
+            stockToLeaveXY = max(stockToLeaveXY, Self.hogSkin); stockToLeaveZ = max(stockToLeaveZ, Self.hogSkin)
+        default: break
+        }
+    }
 
     public init(kind: OperationKind, tool: Tool, material: Material = .named("mdf")) {
         self.kind = kind
@@ -227,8 +247,6 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
             boundary = .silhouette; boundaryMargin = tool.radius
         case .pocket:
             boundary = .insideSilhouette
-            // A hogging bit leaves a skin for the finishing bit (see `restExtraStock`).
-            if tool.kind == .roughing { stockToLeaveXY = Self.hogSkin; stockToLeaveZ = Self.hogSkin }
         case .parallelFinish:
             cutting.stepoverPercent = tool.kind == .ball ? 10 : 25
             boundary = .silhouette; boundaryMargin = tool.radius
@@ -252,6 +270,8 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
             dowel = DowelSettings()
             cutting.stepdown = max(0.5, min(cutting.stepdown, tool.diameter * 0.5))
         }
+        // A hogging bit leaves skins for the finishing bit.
+        applyHogSkins()
     }
 
     public var stepover: Double { max(0.01, tool.diameter * cutting.stepoverPercent / 100) }

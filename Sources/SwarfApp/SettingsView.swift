@@ -181,7 +181,7 @@ struct ToolLibraryView: View {
     func addTool(_ k: ToolKind) {
         if dirty { saveDraft() }
         var t = Tool(name: "New \(k.displayName)", kind: k, diameter: 6, vAngle: k == .drill ? 118 : 60,
-                     flutes: k == .roughing ? 3 : 2, fluteLength: k == .roughing ? 22 : 20,
+                     flutes: k == .roughing ? 3 : 2, fluteLength: k == .roughing ? 35 : 20, stickout: k == .roughing ? 45 : 30,
                      defaults: CuttingData(rpm: 18000, feed: 1200, plunge: 300, stepdown: 1.5,
                                            stepoverPercent: k == .ball ? 10 : k == .roughing ? 45 : 40))
         t.number = (store.tools.map(\.number).max() ?? 0) + 1

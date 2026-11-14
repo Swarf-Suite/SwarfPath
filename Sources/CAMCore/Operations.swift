@@ -773,9 +773,25 @@ extension CAMContext {
         let fin = op.cutoutFinishSettings
         let allowance = max(0, fin.allowance)
         let finishing = fin.enabled && allowance > 1e-6
+        var restCutoutWarning: String? = nil
         let zTop = stockTop
-        let zBot = max(-op.throughDepth, depthFloor(op) ?? -.infinity)
-        let roughZ = op.tool.passLevels(top: zTop, bottom: zBot, stepdown: op.cutting.stepdown)
+        let zBot = cutoutBottom(op)
+        var roughZ = op.tool.passLevels(top: zTop, bottom: zBot, stepdown: op.cutting.stepdown)
+        // After an earlier cutout that stopped higher (a hogging bit leaving the bottom for this one), the roughing
+        // passes start where it stopped. Only when this cutter stays within about a millimetre of the slot it left on
+        // both sides (the skin on the wall, a sliver on the waste side): it ramps down through that full height once.
+        if let ref = restReference(op), ref.kind == .cutout {
+            let refBot = cutoutBottom(ref)
+            let mine = max(0, op.stockToLeaveXY) + (finishing ? allowance : 0)
+            let refIn = max(0, ref.stockToLeaveXY), refOut = refIn + ref.tool.diameter + ref.trenchExtra
+            let maxBite = 1.0
+            let fits = refIn - mine <= maxBite + 1e-9 && mine + op.tool.diameter + op.trenchExtra - refOut <= maxBite + 1e-9
+            if refBot > zBot + 1e-6 && fits {
+                roughZ = [refBot] + roughZ.filter { $0 < refBot - 1e-6 }
+            } else if refBot > zBot + 1e-6 {
+                restCutoutWarning = "This cutout is wider than the slot the earlier one left, so it cuts the full depth again."
+            }
+        }
         let finishZ = op.tool.passLevels(top: zTop, bottom: zBot, stepdown: op.finishStepdown)
         let anchors = tabAnchors(op, finishLoops: finishLoops)
 
@@ -916,12 +932,21 @@ extension CAMContext {
         }
         var tp = makeToolpath(op, b)
         tp.moves = simplifyLinear(tp.moves)
+        if let w = restCutoutWarning { tp.warnings.append(w) }
         if warned { tp.warnings.append("Cutout passes through a keep-out region; keep-outs are not applied to cutouts.") }
         if noRoom > 0 {
             tp.warnings.append(noRoom == 1 ? "One outline has no room for the trench (a small hole, or too near the stock edge); it is cut as a plain slot."
                                : "\(noRoom) outlines have no room for the trench (small holes, or too near the stock edge); they are cut as plain slots.")
         }
         return tp
+    }
+
+    /// Lowest Z a cutout cuts to: through the stock by `throughDepth`, unless a depth limit or the Z stock to leave
+    /// (a hogging bit stopping above the stock bottom so the finishing bit cuts the part free) stops it higher.
+    public func cutoutBottom(_ op: Operation) -> Double {
+        var z = max(-op.throughDepth, depthFloor(op) ?? -.infinity)
+        if op.stockToLeaveZ.isFinite && op.stockToLeaveZ > 0 { z = max(z, op.stockToLeaveZ) }
+        return z
     }
 
     /// Merge collinear consecutive feed moves.

@@ -442,6 +442,16 @@ struct OperationInspector: View {
                     Label("Edit Tool Library…", systemImage: "wrench.and.screwdriver")
                 }
                 .help("Add, edit or import tools (⇧⌘T)")
+                if model.needsFinishingPass(op), let flat = model.finishingTool(after: op) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(op.kind == .cutout
+                              ? String(format: "A hogging bit stops %.0f mm above the stock bottom and leaves a rough wall. Add a cutout with a flat bit to finish it and cut the part free.", CAMCore.Operation.hogFloorSkin)
+                              : String(format: "A hogging bit leaves %.1f mm on walls and %.0f mm on floors. Add a pass with a flat bit to take them to size.", CAMCore.Operation.hogSkin, CAMCore.Operation.hogFloorSkin),
+                              systemImage: "info.circle")
+                            .font(.callout).fixedSize(horizontal: false, vertical: true)
+                        Button("Add Finishing Pass with T\(flat.number) · \(flat.name)") { model.addFinishingPass(after: id) }
+                    }
+                }
             }
             Section("Feeds & speeds") {
                 NumberField(title: "Spindle", value: b(\.cutting.rpm), unit: "RPM", step: 500, range: 0...60000, digits: 0)
@@ -503,7 +513,7 @@ struct OperationInspector: View {
                 }
             }
             kindSpecific(op)
-            if op.kind.supportsRest { restSection(op) }
+            if op.kind.supportsRest || op.kind == .cutout { restSection(op) }
             if op.kind != .facing && op.kind != .cutout && op.kind != .vcarve && op.kind != .drill && op.kind != .dowelHoles {
                 Section("Area") {
                     Picker("Boundary", selection: b(\.boundary)) {
@@ -520,7 +530,15 @@ struct OperationInspector: View {
             if op.kind != .facing && op.kind != .vcarve && op.kind != .drill && op.kind != .dowelHoles {
                 Section("Stock to leave") {
                     NumberField(title: "Radial (XY)", value: b(\.stockToLeaveXY), step: 0.05, range: 0...10)
-                    if op.kind != .cutout { NumberField(title: "Axial (Z)", value: b(\.stockToLeaveZ), step: 0.05, range: 0...10) }
+                    if op.kind != .cutout {
+                        NumberField(title: "Axial (Z)", value: b(\.stockToLeaveZ), step: 0.05, range: 0...10)
+                    } else {
+                        NumberField(title: "Stop above bottom (Z)", value: b(\.stockToLeaveZ), step: 0.5, range: 0...50)
+                        if op.stockToLeaveZ > 0 {
+                            Text(String(format: "Stops %g mm above the stock bottom instead of cutting through, so the part stays attached. A later cutout that follows this one cuts the rest.", op.stockToLeaveZ))
+                                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                 }
             }
             Section {
@@ -535,13 +553,43 @@ struct OperationInspector: View {
 
     @ViewBuilder func restSection(_ op: CAMCore.Operation) -> some View {
         let choices = model.restReferenceChoices(for: op)
-        Section("Rest machining") {
-            Toggle("Only cut what a larger tool left", isOn: Binding(get: { op.restFrom != nil }, set: { on in
-                b(\.restFrom).wrappedValue = on ? choices.first : nil
-                b(\.restLeftStock).wrappedValue = on && choices.first?.kind == .roughing ? CAMCore.Operation.hogSkin : 0
-            }))
-            .disabled(op.restFrom == nil && choices.isEmpty)
-            if let r = op.restFrom {
+        let opChoices = model.restOperationChoices(for: op)
+        let isCutout = op.kind == .cutout
+        Section(isCutout ? "Follows" : "Rest machining") {
+            // "none", "op:<id>" (an earlier operation, exactly as set there) or "tool" (a larger tool, older projects).
+            Picker(isCutout ? "Finishes after" : "Only cut what was left by", selection: Binding(get: {
+                op.restFromOp.map { "op:\($0.uuidString)" } ?? (op.restFrom != nil ? "tool" : "none")
+            }, set: { tag in
+                if tag.hasPrefix("op:"), let o = opChoices.first(where: { "op:\($0.id.uuidString)" == tag }) {
+                    b(\.restFromOp).wrappedValue = o.id
+                    b(\.restFrom).wrappedValue = o.tool
+                    b(\.restLeftStock).wrappedValue = 0
+                } else if tag == "tool", let t = choices.first {
+                    b(\.restFromOp).wrappedValue = nil
+                    b(\.restFrom).wrappedValue = t
+                    b(\.restLeftStock).wrappedValue = t.kind == .roughing ? CAMCore.Operation.hogSkin : 0
+                } else {
+                    b(\.restFromOp).wrappedValue = nil
+                    b(\.restFrom).wrappedValue = nil
+                    b(\.restLeftStock).wrappedValue = 0
+                }
+            })) {
+                Text(isCutout ? "Nothing: cut the full depth" : "Nothing: cut everything").tag("none")
+                if let r = op.restFromOp, !opChoices.contains(where: { $0.id == r }) { Text("A missing operation").tag("op:\(r.uuidString)") }
+                ForEach(opChoices) { o in Text("\(o.name) · T\(o.tool.number) Ø\(String(format: "%g", o.tool.diameter))").tag("op:\(o.id.uuidString)") }
+                if !isCutout && (op.restFromOp == nil && op.restFrom != nil || !choices.isEmpty) { Text("A larger tool…").tag("tool") }
+            }
+            if let rid = op.restFromOp {
+                if let o = opChoices.first(where: { $0.id == rid }) {
+                    Text(isCutout
+                         ? String(format: "Starts where %@ stopped (%g mm above the stock bottom) and cuts the rest of the depth, then the wall passes to size.", o.name, max(0, o.stockToLeaveZ))
+                         : String(format: "Cuts only what %@ left: its stock to leave (%g mm on walls, %g mm on floors) and wherever its Ø%g mm bit couldn't reach. Uses that operation's own area and depth, so changes there carry over.", o.name, o.stockToLeaveXY, o.stockToLeaveZ, o.tool.diameter))
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label("The operation this followed is gone, off, later in the list or on the other side. Choose another.", systemImage: "exclamationmark.triangle")
+                        .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                }
+            } else if let r = op.restFrom, !isCutout {
                 Picker("Larger tool", selection: Binding(get: { r.id }, set: { newID in
                     if let t = choices.first(where: { $0.id == newID }) {
                         b(\.restFrom).wrappedValue = t
@@ -552,14 +600,10 @@ struct OperationInspector: View {
                     ForEach(choices) { t in Text("T\(t.number) · \(t.name)").tag(t.id) }
                 }
                 NumberField(title: "It left extra stock", value: b(\.restLeftStock), step: 0.05, range: 0...3)
-                if op.restLeftStock > 0 {
-                    Text(String(format: "The larger tool's pass left %.2g mm on walls and floors (its stock to leave). This pass takes that skin too, so it sets the final size even if Z was re-zeroed slightly differently after the bit swap.", op.restLeftStock))
-                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-                Text(String(format: "Cuts only where the Ø%g mm tool couldn't reach: inside corners, narrow slots and tight curves. Uses this operation's area, depth and stock to leave, so match them to the operation it follows.", r.diameter))
+                Text(String(format: "Cuts only where the Ø%g mm tool couldn't reach (plus %g mm it left on purpose), using this operation's area, depth and stock to leave, so match them to the operation it follows. Following the operation itself avoids that.", r.diameter, op.restLeftStock))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            } else if choices.isEmpty {
-                Text("No larger tool to follow. Use a smaller bit in this operation, or add larger tools to the library.")
+            } else if opChoices.isEmpty && choices.isEmpty {
+                Text(isCutout ? "No earlier cutout to follow." : "No earlier operation or larger tool to follow.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if op.tool.hasWideShank {

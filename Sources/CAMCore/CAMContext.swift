@@ -432,17 +432,46 @@ public final class CAMContext: @unchecked Sendable {
                                       op.kind == .vcarve ? " — set a depth limit or use a wider-angle V-bit" : ""))
         }
         if let w = restWarning(op) { tp.warnings.append(w) }
-        if op.tool.kind == .roughing && (op.kind == .pocket || op.kind == .roughing)
-            && min(op.stockToLeaveZ, op.stockToLeaveXY) < Operation.hogSkin - 0.1 - 1e-9 {
-            tp.warnings.append(String(format: "A hogging bit's pass should leave about %.1f mm on walls and floors for the finishing bit: Z is rarely re-zeroed exactly the same after a bit swap, and its corn-cob flutes leave a rough wall.", Operation.hogSkin))
-        }
-        // A wide shank is already kept off the model above the flutes (see `toolField`), so cutting deeper is fine.
-        if op.kind != .dowelHoles && !(op.tool.hasWideShank && op.kind != .vcarve && op.kind != .drill && op.kind != .cutout && op.kind != .facing)
-            && stockTop - deepest > op.tool.fluteLength + 0.01 {
-            tp.warnings.append(String(format: "Cut depth %.1f mm exceeds the tool's flute length (%.1f mm).", stockTop - deepest, op.tool.fluteLength))
-        }
+        if let w = hogSkinWarning(op) { tp.warnings.append(w) }
+        if let w = depthWarning(op, depth: stockTop - deepest) { tp.warnings.append(w) }
         progress?(1)
         return tp
+    }
+
+    /// A hogging bit should leave skins for the finishing bit (see `Operation.applyHogSkins`).
+    func hogSkinWarning(_ op: Operation) -> String? {
+        guard op.tool.kind == .roughing else { return nil }
+        switch op.kind {
+        case .pocket, .roughing:
+            let floor = op.kind == .pocket ? Operation.hogFloorSkin : Operation.hogSkin
+            guard op.stockToLeaveXY < Operation.hogSkin - 0.1 - 1e-9 || op.stockToLeaveZ < floor * 0.5 - 1e-9 else { return nil }
+            return String(format: "A hogging bit's pass should leave about %.1f mm on walls and %.1f mm on floors for the finishing bit: its corn-cob flutes leave a rough wall, and Z is rarely re-zeroed exactly the same after the bit swap.", Operation.hogSkin, floor)
+        case .cutout:
+            guard op.stockToLeaveZ < Operation.hogFloorSkin * 0.5 - 1e-9 || op.stockToLeaveXY < Operation.hogSkin - 0.1 - 1e-9 else { return nil }
+            return String(format: "A hogging bit's cutout should stop about %.0f mm above the stock bottom (Z stock to leave) and leave %.1f mm on the wall, and a flat bit should finish it: a corn-cob bit leaves a rough wall and tears the bottom edge.", Operation.hogFloorSkin, Operation.hogSkin)
+        default:
+            return nil
+        }
+    }
+
+    /// Too deep for the bit. A shank wider than the cutter can't go below the flutes (except where `toolField` already
+    /// keeps it off the model); a shank no wider than the cutter follows it down its own slot, so then the limit is the
+    /// collet: the bit's stick-out, less a little clearance over the surface.
+    func depthWarning(_ op: Operation, depth: Double) -> String? {
+        guard op.kind != .dowelHoles else { return nil }
+        let t = op.tool
+        let colletClearance = 2.0
+        if t.stickout.isFinite && t.stickout > 0 && depth > t.stickout - colletClearance + 0.01 {
+            return String(format: "Cut depth %.1f mm leaves the collet less than %.0f mm above the stock: the bit sticks out only %.1f mm. Set it further out of the collet, or limit the depth.", depth, colletClearance, t.stickout)
+        }
+        guard depth > t.fluteLength + 0.01 else { return nil }
+        let endMill = t.kind.cutsFlat || t.kind == .ball || t.kind == .bullNose
+        if endMill && !t.hasWideShank { return nil }
+        // A wide shank is already kept off the model above the flutes (see `toolField`), so cutting deeper is fine.
+        if t.hasWideShank && op.kind != .vcarve && op.kind != .drill && op.kind != .cutout && op.kind != .facing { return nil }
+        return String(format: t.hasWideShank
+                      ? "Cut depth %.1f mm exceeds the tool's flute length (%.1f mm), and its shank is wider than the cutter."
+                      : "Cut depth %.1f mm exceeds the tool's flute length (%.1f mm).", depth, t.fluteLength)
     }
 
     func makeToolpath(_ op: Operation, _ b: PathBuilder) -> Toolpath {
