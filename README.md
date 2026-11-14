@@ -107,17 +107,17 @@ The [user guide](docs/Swarf-User-Guide.pdf) covers each step in detail.
 | 3D Finish – Waterline | Constant-Z contours, optionally only on steep walls |
 | V-Carve | Engraves text and logos with a V-bit. Corners stay sharp and the depth follows the stroke width. Optional flat-bottom depth limit |
 | Drill (Peck) | Finds round holes that match the tool diameter and pecks them, with a full retract to clear chips or a short chip-break lift. Blind holes stop at their floor; through holes go below the stock. Output is plain G0/G1, so it runs on any firmware |
-| Cutout (Profile) | Cuts the part free, internal holes first, with **holding tabs**. Roughing passes stay 0.5 mm off the part, then a finishing pass takes off the last skin at a deeper cut (4× the roughing stepdown by default) for a clean edge. An optional **wide trench** roughs each level twice, outer pass first, so the slot is 1.5× the cutter and chips clear |
+| Cutout (Profile) | Cuts the part free, internal holes first, with **holding tabs**. Roughing passes stay 0.5 mm off the part, then a finishing pass takes off the last skin at a deeper cut (4× the roughing stepdown by default) for a clean edge. An optional **wide trench** roughs each level twice, outer pass first, so the slot is 1.5× the cutter and chips clear (stretches beyond the stock run at the machine's top feed). **Stop above bottom** leaves a skin under the part for a later cutout to cut through |
 | Dowel Holes (Flip) | Two-sided jobs: registration holes through the stock and 5 mm into the spoilboard, in pairs mirrored across the stock's centre line. Placed automatically (beyond each end of the part, or either side of a waist) or by clicking, with a green/red preview |
 
 In a two-sided job, pockets, 3D roughing and finishing, and drilling can also be set to machine **side B**
 (the back). Side B is never cut out, faced or engraved: the part is cut out from side A, and side B
-leaves the stock frame and the tabs alone.
+leaves the stock frame and the tabs alone. Keep-outs can apply to side A, side B or both, since clamps move after the flip.
 
 **Rest machining.** Pockets, 3D roughing and both 3D finishes can follow a larger tool and cut only the material it
-left. Choose **+ ▸ Rest Clearing**, or turn on *Only cut what a larger tool left* in any of those operations and pick
-the larger tool. The rest pass uses its own operation's area, depth and stock to leave, and works one corner or slot at
-a time from the top down. Small bits often have a shank wider than the cutter (a 0.9 mm bit on a 1/8" or 4 mm shank):
+left. Choose **+ ▸ Rest Clearing**, or pick an earlier operation under *Only cut what was left by*: the rest pass then
+models that operation exactly (its tool, area, depth and stock to leave). It works one corner or slot at a time from the
+top down. Small bits often have a shank wider than the cutter (a 0.9 mm bit on a 1/8" or 4 mm shank):
 Swarf keeps that shank off the walls above the flutes, so beside a wall the bit only reaches its flute length below the
 top of the wall, and it tells you how much it had to leave. After a simulation, Swarf suggests a rest pass when a
 clearing operation leaves material a smaller bit in your library could reach.
@@ -132,8 +132,12 @@ bull nose, V-bit and drill tools are supported, picked from a dialog with a pict
 stick-out, flute style and default cutting data, with a labelled diagram of the bit, and Swarf shows the chip load with warnings when values look
 risky. A **Feeds & Speeds calculator** (in the library and in each operation) aims for a chip load in the recommended
 range for the bit and material, corrects for chip thinning at light side cuts, and caps the feed at the machine's
-maximum, slowing the spindle to keep the chip load when that limit decides. With a hogging bit in the library, pockets
-and 3D roughing use it, leaving 0.3 mm for a flat finishing pass in a separate file, so Z can be re-zeroed after the swap. The library is saved in `~/Library/Application Support/Swarf/tools.json`. You can import
+maximum, slowing the spindle to keep the chip load when that limit decides. It also allows for a ball or bull nose
+cutting shallower than its corner (a smaller cutting circle, a thinner chip). With a hogging bit in the library, pockets,
+cutouts and 3D roughing use it: pockets leave 0.3 mm on walls and 3 mm on floors, cutouts stop 3 mm above the stock
+bottom, and a flat bit finishes in a separate file (so Z can be re-zeroed after the swap). Change a pocket's or cutout's
+tool to a hogging bit and Swarf offers the finishing pass. A bit whose shank is no wider than its cutter may cut below its
+flutes; its stick-out (collet clearance) is the limit. The library is saved in `~/Library/Application Support/Swarf/tools.json`. You can import
 Fusion 360 tool libraries, and import or export Swarf's own JSON.
 
 The starter library includes 6 mm flat and ball-nose compression cutters, smaller flat and ball
@@ -199,7 +203,10 @@ The engine (`CAMCore`) is pure Swift and uses no GPL code.
    V) on the GPU. That gives the lowest safe tool-tip height everywhere.
 3. Keep-outs and boundaries raise the height field *before* that offset, so every strategy keeps the
    right clearance.
-4. Offsets come from exact Euclidean distance transforms, and contours from marching squares.
+4. Offsets come from exact Euclidean distance transforms, and contours from marching squares. Wherever size
+   matters (cutout outlines, pocket, roughing and waterline walls, hole centres, V-carve depths), contour points
+   are then moved onto the true mesh geometry, for any cutter shape, so walls land within microns rather than
+   a grid cell.
 5. The simulator removes material from a stock height field and compares the result with the model.
 
 ## Safety

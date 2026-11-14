@@ -161,7 +161,7 @@ open build/Swarf.app</pre>
     <li><b>Type:</b> flat end mill, roughing (hogging) bit, ball nose, bull nose (with corner radius), V-bit (with included angle and tip diameter) or drill.
       <b>Flute style</b> (up-cut, down-cut, compression or straight) is optional; down-cut and straight flutes get a slightly lower recommended chip load.</li>
     <li><b>Geometry:</b> diameter, flutes, flute length (the cutting length), stick-out and shank diameter. A diagram of the bit labels each
-      dimension with a letter that matches the letter beside its field; hover over a field to highlight its dimension. Stick-out is measured from the collet nut to the tip. Swarf warns you when a cut is deeper than the flute length.</li>
+      dimension with a letter that matches the letter beside its field; hover over a field to highlight its dimension. Stick-out is measured from the collet nut to the tip. Swarf warns when a cut would bring the collet within 2 mm of the stock top. A bit whose shank is no wider than its cutter (most end mills, and hogging bits) can cut deeper than its flutes, since the shank follows the cutter down its own slot, so for those the stick-out is the limit. A shank wider than the cutter is kept off the walls above the flutes (see rest machining), and V-bits and drills are warned past their flutes.</li>
     <li><b>Default cutting data</b> (an MDF baseline): spindle speed, feed, plunge, stepdown, stepover and ramp angle. The chip-load readout and warnings help you choose sensible values, and the calculator below does it for you.</li>
     <li><b>Tool number:</b> the T number written to the G-code.</li>
   </ul>
@@ -174,15 +174,25 @@ open build/Swarf.app</pre>
   <ul>
     <li><b>Chip load:</b> the slider runs from gentle to aggressive within the range recommended for the bit's size, type and flute style in that material. A rigid machine can sit towards the aggressive end.</li>
     <li><b>Cut:</b> a full-width slot (cutouts and the first pass of a pocket) or a side cut of a given width. A narrow side cut makes a thinner chip than the feed per tooth, so the feed goes up to keep the chip the same (chip thinning).</li>
+    <li><b>Shallower than the ball</b> (ball and bull nose only): near its tip a ball cuts with a smaller circle than its diameter, so the chip is thinner (at 0.5 mm deep a 6 mm ball cuts with a 3.3 mm circle). Give the depth of cut and the feed goes up to keep the real chip on target, up to 3× in all. It starts from the operation's stepdown, or 0.5 mm for parallel finishing, and the operation's chip-load warning uses the same depth.</li>
     <li><b>Machine limits:</b> the feed never goes over the machine's fastest feed (you can lower it there). When that limit decides, the spindle is slowed to keep the chip load: the same cutting speed, but quieter and cooler. Turn off <b>Fastest spindle speed</b> to choose the speed yourself; if it's faster than needed, the calculator says which speed gives the target chip.</li>
     <li><b>Apply</b> sets spindle speed, feed and plunge (plunge is capped by bit size, and at 800 mm/min), and the stepdown too if you tick it.</li>
   </ul>
   <p>The values are starting points from typical chip-load charts. Listen to the cut and look at the chips: dust and burning mean the chip is too small, a straining spindle means too big.</p>
   <h3>Roughing (hogging) bits</h3>
-  <p>A corn-cob roughing bit clears material fast but leaves a rough wall. When the library has one, <b>Full Processing</b> and new pocket and 3D
-    roughing operations use it. A hogging pocket leaves <b>0.3 mm</b> on walls and floors, and Swarf adds <b>Pockets (finish)</b> with the flat bit right after it.
-    That finishing pass uses rest machining with <b>It left extra stock</b> set to 0.3 mm, so it only cuts the skin and the corners the hogging bit couldn't reach, not the whole pocket again.
-    The two bits go in separate G-code files, so you can swap bits between them. Keep the same XY zero and re-zero Z after the swap; the 0.3 mm skin means a slightly different Z can't leave a step in the floor. Cutouts and finishing never use the hogging bit.</p>
+  <p>A corn-cob roughing bit clears material fast but leaves a rough wall, so a flat bit always finishes after it. When the library has one,
+    <b>Full Processing</b> and new pocket, cutout and 3D roughing operations use it:</p>
+  <ul>
+    <li><b>Pockets</b> with the hogging bit leave <b>0.3 mm</b> on the walls and <b>3 mm</b> on the floor. <b>Pockets (finish)</b> follows that operation with the flat bit:
+      it cuts only the skins and the corners the hogging bit couldn't reach, not the whole pocket again.</li>
+    <li><b>Cutouts</b> with the hogging bit stop <b>3 mm above the stock bottom</b> (<b>Stop above bottom</b>, under Stock to leave) and leave 0.3 mm on the wall, so the part stays held.
+      The <b>Cutout</b> after it, with the flat bit, follows it: one ramp down the hogged slot to where it stopped, the rest of the depth with the tabs, then the finishing pass to size.</li>
+    <li>Full Processing puts all the hogging work first, then the finishing bits, then the final cutout: one bit swap. Each bit gets its own G-code file.
+      Keep the same XY zero and re-zero Z after the swap; the 3 mm floor skin means a slightly different Z can't leave a step.</li>
+    <li>If you change a pocket's or cutout's tool to a hogging bit yourself, Swarf sets those skins and offers <b>Add Finishing Pass</b> under the tool.
+      Changing it back to another bit clears them.</li>
+    <li>A hogging bit with a 6 mm shank on a 6 mm cutter can cut deeper than its flutes (35 mm, say): the limit is the stick-out, so enter how far it really sticks out of the collet.</li>
+  </ul>
   <div class="tip">When you edit a tool in the library, open projects that use it pick up the new geometry. Each operation keeps its own feeds and T number,
     so changing the library never silently changes the feeds of an operation you've already tuned.</div>
 </section>
@@ -197,7 +207,7 @@ open build/Swarf.app</pre>
   <table>
     <tr><th style="width:24%">Operation</th><th>Use it for</th></tr>
     <tr><td>Facing</td><td>Flattening the stock top. Set the depth and choose zig-zag or one-way passes.</td></tr>
-    <tr><td>Pocket / Cavity</td><td>Flat-bottomed recesses such as pickup and control cavities. Offset passes with an exact pass on every flat floor.</td></tr>
+    <tr><td>Pocket / Cavity</td><td>Flat-bottomed recesses such as pickup and control cavities. Offset passes with an exact pass on every flat floor; walls land on the model's true outline for flat, ball and bull-nose bits alike.</td></tr>
     <tr><td>3D Roughing</td><td>Removing bulk material from curved shapes layer by layer, leaving stock for finishing.</td></tr>
     <tr><td>3D Finish – Parallel</td><td>Smooth surfaces with a ball nose, in raster passes at any angle. Optionally only on slopes below a set angle.</td></tr>
     <tr><td>3D Finish – Waterline</td><td>Steep walls, using constant-height contours. Optionally only on slopes above a set angle.</td></tr>
@@ -215,7 +225,7 @@ open build/Swarf.app</pre>
       With <i>inside the model only</i>, a hole that goes right through the part (a pickup slot, a pot hole) is not a wall: near a wall,
       the cutter may sweep up to a cutter width over the hole's edge, at the level of the floor around it. That clears floor strips
       narrower than the cutter, such as between a slot and a cavity wall. The middle of the hole is left alone.</li>
-    <li><b>Stock to leave:</b> radial (XY) and axial (Z) allowances for a later finishing operation.</li>
+    <li><b>Stock to leave:</b> radial (XY) and axial (Z) allowances for a later finishing operation. On a cutout, the Z value is <b>Stop above bottom</b>: the cutout stops that far above the stock bottom instead of cutting through, and a later cutout that follows it cuts the rest.</li>
     <li><b>Direction:</b> climb or conventional milling.</li>
   </ul>
   <p>Changes regenerate the toolpaths automatically. Each operation shows its estimated time, cutting length, depth range and any warnings.</p>
@@ -225,10 +235,14 @@ open build/Swarf.app</pre>
     whole pocket.</p>
   <ul>
     <li>Select the pocket or 3D roughing operation and choose <b>+ ▸ Rest Clearing</b>. Swarf adds a copy right after it with
-      the largest flat bit in your library that is clearly smaller, set to follow the original tool. Change the bit in the copy's Tool section.</li>
-    <li>Or, in any pocket, 3D roughing or 3D finishing operation, turn on <b>Only cut what a larger tool left</b> under
-      <b>Rest machining</b> and pick the larger tool. A small ball nose can clean up concave curves after a larger one this way.</li>
-    <li>The rest pass uses its own operation's area, depth and stock to leave, so keep them the same as the operation it follows.</li>
+      the largest flat bit in your library that is clearly smaller, set to follow that operation. Change the bit in the copy's Tool section.</li>
+    <li>Or, in any pocket, 3D roughing or 3D finishing operation, pick what it follows under <b>Rest machining ▸ Only cut what was left by</b>.
+      A small ball nose can clean up concave curves after a larger one this way.</li>
+    <li><b>An earlier operation</b> (listed by name; same side, earlier in the list) is the exact choice: the rest pass models that operation as it is set,
+      with its own tool, area, depth and stock to leave, and keeps up when you change it. If that operation is deleted, turned off or moved after the rest pass,
+      the rest pass cuts everything and says so.</li>
+    <li><b>A larger tool…</b> is the older way, kept for projects made with it: the rest pass assumes that tool cut with this operation's own area, depth and stock to leave,
+      plus <b>It left extra stock</b>, so keep them matched.</li>
     <li>It works one corner or slot at a time, from the top down, and stays down between levels instead of lifting out each time.</li>
     <li>After a simulation, Swarf suggests a rest pass when a pocket or roughing operation leaves material that a smaller
       bit in your library could reach, with an <b>Add Rest Clearing</b> button.</li>
@@ -262,6 +276,7 @@ open build/Swarf.app</pre>
     <li>The stock needs that much more room around the part. Side B and dowel holes allow for the wider slot.</li>
     <li>Holes too small for the trench, and outlines too near the stock edge, get a plain slot; the operation's warnings say how many.</li>
     <li>Tabs cross the whole width of the trench.</li>
+    <li>Where the stock margin is small and the outer pass runs beyond the stock edge, those stretches cut nothing and run at the machine's fastest feed.</li>
   </ul>
   <h3>Holding tabs</h3>
   <ul>
@@ -328,7 +343,9 @@ open build/Swarf.app</pre>
     the operation reports an error until you move it.</p>
   <h3>What side B leaves alone</h3>
   <p>The part hangs in the stock by the tabs from side A's cutout. Side B never cuts the frame of stock around the part (it holds the dowels and the clamps),
-    and never cuts where the tabs are. Keep-out boxes are drawn on the side-A view and apply to side B in the same place on the part, over their full depth.</p>
+    and never cuts where the tabs are. Keep-out boxes are drawn on the side-A view and apply to side B in the same place on the part, over their full depth.
+    Clamps usually move when you flip the stock, so each keep-out has a <b>Side</b> setting in two-sided jobs: both sides, side A only or side B only.
+    Draw a side-B clamp over the side-B toolpaths as they are shown in the top view; the sidebar marks one-side regions “A” or “B”.</p>
   <h3>Viewing and simulating</h3>
   <p>Side-B toolpaths are drawn under the part, where they cut. Use <b>Bottom</b> view (⌘4) to look at the back as it lies after the flip.
     The simulation cuts side B from below and checks the back for gouges too.</p>
@@ -357,7 +374,8 @@ open build/Swarf.app</pre>
     <li>Click a box to select it. It turns orange. Drag it to move it, nudge it with the arrow keys (1 mm; ⇧ 10 mm; ⌥ 0.1 mm), or press ⌫ to delete it. Click empty space to deselect.</li>
     <li>In the inspector, set exact coordinates, switch the type to <b>Machine only within</b> (which limits operations to the inside of the box), or turn on <b>Allow cutting down to a height</b> to protect only what's below a set Z.</li>
   </ol>
-  <p>The cutter stays a full radius away from keep-outs in every operation except cutouts. The simulator reports any keep-out violations.</p>
+  <p>The cutter stays a full radius away from keep-outs in every operation except cutouts. The simulator reports any keep-out violations.
+    In a two-sided job, <b>Side</b> chooses whether a box applies to side A, side B or both (see chapter 11).</p>
 
   <h2 style="margin-top:16pt">14 · Simulation and checks</h2>
   <p>Click <b>Simulate</b> (⌘R) to remove material from a virtual block of stock. Use the scrubber or play button to watch the job. Below the scrubber you'll see:</p>

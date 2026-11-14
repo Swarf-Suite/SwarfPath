@@ -71,7 +71,10 @@ Three targets share one engine:
    contours are pure cell staircases. `straightenGridRuns` (Operations.swift) replaces those stretches, and the
    inner pocket passes, with chords; on the wall pass it may reach 0.75 cells past the mask, which is always spare
    margin. Measure motion smoothness on real output by counting turn-direction flips between consecutive G1 moves.
-   Rest machining (Rest.swift): `Operation.restFrom` holds a copy of the larger tool. `restField` erodes both tools'
+   Rest machining (Rest.swift): `Operation.restFromOp` names an earlier operation (same side) and `restReference`
+   returns it as-is, so its own tool, area, depth and stock to leave are modelled; `restFrom` (a copy of a larger tool,
+   plus `restLeftStock`) is the older form, applied to this operation's own settings. The app's `opKey` includes the
+   referenced operation. `restField` erodes both tools'
    fields into the surfaces they can leave; where the larger tool's is higher, tool positions touching that material
    may cut (`RestField.materialTop`). `clearing` masks each level with it and cuts the areas depth-first, one corner at
    a time; parallel and waterline just skip positions that touch nothing. A shank wider than the cutter
@@ -79,15 +82,20 @@ Three targets share one engine:
    length), so its diameter and flute length are in `fieldKey`.
    Feeds and speeds (FeedsCalculator.swift): a chip-load table by diameter for MDF, scaled by material, bit type and
    flute style and kept inside `FeedsAndSpeeds.window` (what the warnings accept); chip thinning; machine max feed caps
-   the feed and slows the spindle. A `.roughing` (hogging) bit cuts like a flat (`ToolKind.cutsFlat`); pockets with it
-   leave `Operation.hogSkin`, and `JobTemplates.pockets` adds a flat rest pass with `restLeftStock` to take that skin.
+   the feed and slows the spindle; a shallow ball or bull nose gets axial thinning (`effectiveDiameter`), and
+   `Operation.typicalAxialDepth` feeds the same into the warning. A `.roughing` (hogging) bit cuts like a flat
+   (`ToolKind.cutsFlat`); `Operation.applyHogSkins` makes pockets leave `hogSkin` (walls) and `hogFloorSkin` (floors),
+   and cutouts stop `hogFloorSkin` above the stock bottom (a cutout's `stockToLeaveZ` means "stop above bottom", see
+   `cutoutBottom`). `JobTemplates.finishing(after:)` adds the flat pass that follows it; a cutout following an earlier
+   cutout starts its roughing where that one stopped. Full Processing orders hogging work first (one bit swap).
 6. `CAMContext.generate(op)` is the single entry point: it validates settings, dispatches by
-   `OperationKind`, rejects non-finite moves, and appends warnings (feeds, flute length, test-cut, below
-   stock). `JobTemplates.fullProcessing` (Templates.swift) picks operations from model traits.
+   `OperationKind`, rejects non-finite moves, and appends warnings (feeds, depth vs flutes or collet stick-out,
+   hogging skins, test-cut, below stock). `JobTemplates.fullProcessing` (Templates.swift) picks operations from model traits.
 7. Two-sided jobs (Flip.swift): `Job.flip` turns them on and `Operation.side` (Optional) puts an operation on side B.
    Side B uses its own `CAMContext` (`makeSideB`/`sideB`), built from `PlacedModel.rolledAboutX()`: (x, y, z) →
    (x, W − y, T − z), so side-B toolpaths are in the machine's coordinates after the flip. `FrameProtection` keeps
-   side B off the stock frame and side A's tabs. Side-A cutout settings therefore feed side B's cache key
+   side B off the stock frame and side A's tabs. `Region.sides` limits a keep-out to one side (clamps move after the
+   flip); `regions(for:)` filters by the context's `side`. Side-A cutout settings therefore feed side B's cache key
    (`ProjectModel.cutoutsKey`). The slot a cutout leaves (cutter, allowance, optional wide trench) is
    `Operation.cutoutSlotWidth`; the frame and dowel clearances use it. `.dowelHoles` drills pairs mirrored across the Y centre line: hand-placed `DowelSettings.picks` (validated by
    `dowelProblem`) or automatic (`dowelPositions`). `Toolpath.rolledAboutX` maps side B back
