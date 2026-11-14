@@ -40,11 +40,31 @@ public enum JobTemplates {
         return [dowels] + side + back
     }
 
+    /// Pocketing with `flat`; with a hogging bit, the hogging bit clears first and leaves a skin
+    /// (`Operation.hogSkin`), then `flat` takes the skin and anything the hogging bit couldn't reach. They are separate
+    /// tools, so they go in separate files for the bit swap.
+    public static func pockets(flat: Tool, hog: Tool?, material: Material) -> [Operation] {
+        guard let hog else {
+            var p = Operation(kind: .pocket, tool: flat, material: material)
+            p.name = "Pockets"
+            return [p]
+        }
+        var rough = Operation(kind: .pocket, tool: hog, material: material)
+        rough.name = "Pockets (hogging)"
+        var fin = Operation(kind: .pocket, tool: flat, material: material)
+        fin.name = "Pockets (finish)"
+        fin.restFrom = hog
+        fin.restLeftStock = Operation.hogSkin
+        return [rough, fin]
+    }
+
     static func singleSide(_ ctx: CAMContext, library: ToolLibrary, material: Material) -> [Operation] {
         let t = traits(ctx)
         var ops: [Operation] = []
         let flat6 = library.closest(kind: .flat, diameter: 6) ?? ToolLibrary.starter.tools[0]
         let ball = library.closest(kind: .ball, diameter: 6) ?? flat6
+        // A hogging bit, when the library has one, does the bulk of the clearing.
+        let hog = library.closest(kind: .roughing, diameter: 6)
         if t.topBelowStock {
             var f = Operation(kind: .facing, tool: flat6, material: material)
             f.facingDepth = min(ctx.stockTop - ctx.placed.modelBounds.max.z, 2)
@@ -52,7 +72,7 @@ public enum JobTemplates {
             ops.append(f)
         }
         if t.hasCurvedTop {
-            var r = Operation(kind: .roughing, tool: flat6, material: material)
+            var r = Operation(kind: .roughing, tool: hog ?? flat6, material: material)
             r.name = "Rough"
             ops.append(r)
             var p = Operation(kind: .parallelFinish, tool: ball, material: material)
@@ -66,9 +86,7 @@ public enum JobTemplates {
             w.cutting.stepdown = 0.3
             ops.append(w)
         } else if t.hasCavities || t.topBelowStock {
-            var p = Operation(kind: .pocket, tool: flat6, material: material)
-            p.name = "Pockets"
-            ops.append(p)
+            ops += pockets(flat: flat6, hog: hog, material: material)
         }
         var c = Operation(kind: .cutout, tool: flat6, material: material)
         c.name = "Cutout"

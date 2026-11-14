@@ -47,6 +47,11 @@ extension CAMContext {
         var refOp = op
         refOp.tool = ref
         refOp.restFrom = nil
+        refOp.restExtraStock = nil
+        // The larger tool's pass may have left a skin on purpose (a hogging bit); this operation takes that too.
+        let extra = op.restLeftStock
+        refOp.stockToLeaveXY += extra
+        refOp.stockToLeaveZ += extra
         let key = fieldKey(op) + "#rest#" + fieldKey(refOp) + "\(ref.shankDiameter)/\(ref.fluteLength)"
         lock.lock()
         if let r = restCache[key] { lock.unlock(); return r }
@@ -54,7 +59,7 @@ extension CAMContext {
 
         let leave = op.stockToLeaveXY
         let Ts = toolField(op)
-        let R = machinedSurface(toolField(refOp), tool: ref, extraRadius: leave)
+        let R = machinedSurface(toolField(refOp), tool: ref, extraRadius: refOp.stockToLeaveXY)
         let S = machinedSurface(Ts, tool: op.tool, extraRadius: leave)
         // The same tool without its shank shows what only the shank stops it reaching.
         var S0 = S
@@ -88,7 +93,7 @@ extension CAMContext {
     func restWarning(_ op: Operation) -> String? {
         guard let ref = op.restFrom, let rf = restField(op) else { return nil }
         var parts: [String] = []
-        if rf.leftoverArea < 0.5 {
+        if rf.leftoverArea < 0.5 && op.restLeftStock == 0 {
             parts.append(String(format: "Nothing left for this tool: the Ø%g mm %@ already reaches everywhere it can.", ref.diameter,
                                 ref.kind.displayName.lowercased()))
         }

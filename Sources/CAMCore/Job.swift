@@ -194,12 +194,24 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
     /// tool could not reach (tight corners, narrow slots, concave curves), using this operation's own area and depth
     /// settings. Pockets, 3D roughing and both 3D finishes support it. nil = cut everything (older projects).
     public var restFrom: Tool? = nil
+    /// Rest machining: stock (mm, on walls and floors) the larger tool's pass left on purpose, as a hogging bit does
+    /// so that the finishing bit sets the final size even if Z is re-zeroed slightly differently after the bit swap.
+    /// This operation then also takes that skin. nil = 0.
+    public var restExtraStock: Double? = nil
+    public var restLeftStock: Double {
+        get { let v = restExtraStock ?? 0; return v.isFinite ? max(0, v) : 0 }
+        set { restExtraStock = newValue > 0 ? newValue : nil }
+    }
     /// Which face this operation machines in a two-sided job. nil = side A. Optional so older projects still open.
     public var side: MachiningSide? = nil
     public var machiningSide: MachiningSide {
         get { side ?? .a }
         set { side = newValue == .a ? nil : newValue }
     }
+
+    /// Stock a hogging (roughing) bit leaves on walls and floors for the finishing bit (mm). Covers a slightly different
+    /// Z zero after the bit swap.
+    public static let hogSkin = 0.3
 
     public init(kind: OperationKind, tool: Tool, material: Material = .named("mdf")) {
         self.kind = kind
@@ -215,6 +227,8 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
             boundary = .silhouette; boundaryMargin = tool.radius
         case .pocket:
             boundary = .insideSilhouette
+            // A hogging bit leaves a skin for the finishing bit (see `restExtraStock`).
+            if tool.kind == .roughing { stockToLeaveXY = Self.hogSkin; stockToLeaveZ = Self.hogSkin }
         case .parallelFinish:
             cutting.stepoverPercent = tool.kind == .ball ? 10 : 25
             boundary = .silhouette; boundaryMargin = tool.radius

@@ -49,6 +49,8 @@ struct ToolLibraryView: View {
     @State private var draft: Tool?
     @State private var pendingSelection: UUID??
     @State private var confirmReset = false
+    @State private var showNewTool = UserDefaults.standard.bool(forKey: "SwarfShowNewTool")
+    @AppStorage("defaultMachineID") var machineID = MachineProfile.workbeeRRF.id
     @State private var message: String?
 
     var saved: Tool? { selection.flatMap { id in store.tools.first { $0.id == id } } }
@@ -110,12 +112,8 @@ struct ToolLibraryView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     HStack {
-                        Menu {
-                            ForEach(ToolKind.allCases) { k in
-                                Button(k.displayName) { addTool(k) }
-                            }
-                        } label: { Label("Add Tool", systemImage: "plus") }
-                        .fixedSize()
+                        Button { showNewTool = true } label: { Label("Add Tool…", systemImage: "plus") }
+                            .sheet(isPresented: $showNewTool) { NewToolSheet { addTool($0) } }
                         Button("Import…") { importTools() }
                         Button("Export…") { exportTools() }
                         Spacer()
@@ -182,8 +180,16 @@ struct ToolLibraryView: View {
 
     func addTool(_ k: ToolKind) {
         if dirty { saveDraft() }
-        let t = Tool(name: "New \(k.displayName)", kind: k, diameter: 6,
-                     defaults: CuttingData(rpm: 18000, feed: 1200, plunge: 300, stepdown: 1.5, stepoverPercent: k == .ball ? 10 : 40))
+        var t = Tool(name: "New \(k.displayName)", kind: k, diameter: 6, vAngle: k == .drill ? 118 : 60,
+                     flutes: k == .roughing ? 3 : 2, fluteLength: k == .roughing ? 22 : 20,
+                     defaults: CuttingData(rpm: 18000, feed: 1200, plunge: 300, stepdown: 1.5,
+                                           stepoverPercent: k == .ball ? 10 : k == .roughing ? 45 : 40))
+        t.number = (store.tools.map(\.number).max() ?? 0) + 1
+        // Start from the calculator's middle-of-the-range values for MDF on the default machine.
+        let mdf = CAMCore.Material.named("mdf")
+        let r = FeedsCalculator.calculate(FeedsCalculator.Request(tool: t, material: mdf, machine: MachineProfile.find(machineID)))
+        t.defaults.rpm = r.rpm; t.defaults.feed = r.feed; t.defaults.plunge = r.plunge
+        t.defaults.stepdown = (FeedsCalculator.recommendedStepdown(tool: t, material: mdf) * 100).rounded() / 100
         store.add(t)
         select(store.tools.last?.id)
     }
@@ -218,6 +224,22 @@ struct ToolLibraryView: View {
 
 struct ToolEditor: View {
     @Binding var tool: Tool
+    @AppStorage("defaultMachineID") var machineID = MachineProfile.workbeeRRF.id
+    /// The dimension under the pointer, highlighted on the diagram.
+    @State private var highlight: ToolDim?
+    // Developer hook: -SwarfShowCalculator YES opens the calculator (automated screenshots).
+    @State private var showCalculator = UserDefaults.standard.bool(forKey: "SwarfShowCalculator")
+
+    /// A field with the letter of its dimension on the diagram; hovering it highlights that dimension.
+    func dim<F: View>(_ d: ToolDim, @ViewBuilder _ field: () -> F) -> some View {
+        HStack(spacing: 8) {
+            DimBadge(dim: d)
+            field()
+        }
+        .onHover { inside in
+            if inside { highlight = d } else if highlight == d { highlight = nil }
+        }
+    }
 
     var body: some View {
         Form {
@@ -227,18 +249,37 @@ struct ToolEditor: View {
                 Picker("Type", selection: $tool.kind) {
                     ForEach(ToolKind.allCases) { Text($0.displayName).tag($0) }
                 }
-            }
-            Section("Geometry") {
-                NumberField(title: "Diameter", value: $tool.diameter, step: 0.1, range: 0.1...50, digits: 3)
-                if tool.kind == .bullNose { NumberField(title: "Corner radius", value: $tool.cornerRadius, step: 0.1, range: 0...25, digits: 2) }
-                if tool.kind == .vBit || tool.kind == .drill {
-                    NumberField(title: "Included angle", value: $tool.vAngle, unit: "°", step: 5, range: 10...170, digits: 1)
-                    NumberField(title: "Tip diameter", value: $tool.tipDiameter, step: 0.05, range: 0...10)
+                Picker("Flute style", selection: $tool.fluteStyle) {
+                    ForEach(FluteStyle.allCases) { Text($0.displayName).tag($0) }
                 }
+            }
+            Section {
+                HStack {
+                    Spacer()
+                    BitView(kind: tool.kind, flute: tool.fluteStyle, dimensions: true, highlight: highlight,
+                            shankRatio: tool.shankDiameter / max(0.1, tool.diameter))
+                        .frame(width: 230, height: 250)
+                    Spacer()
+                }
+                dim(.diameter) { NumberField(title: "Diameter", value: $tool.diameter, step: 0.1, range: 0.1...50, digits: 3) }
+                if tool.kind == .bullNose {
+                    dim(.cornerRadius) { NumberField(title: "Corner radius", value: $tool.cornerRadius, step: 0.1, range: 0...25, digits: 2) }
+                }
+                if tool.kind == .vBit || tool.kind == .drill {
+                    dim(.angle) { NumberField(title: "Included angle", value: $tool.vAngle, unit: "°", step: 5, range: 10...170, digits: 1) }
+                    if tool.kind == .vBit {
+                        dim(.tipDiameter) { NumberField(title: "Tip diameter", value: $tool.tipDiameter, step: 0.05, range: 0...10) }
+                    }
+                }
+                dim(.fluteLength) { NumberField(title: "Flute length", value: $tool.fluteLength, step: 1, range: 0.5...200) }
+                dim(.stickout) { NumberField(title: "Stick-out", value: $tool.stickout, step: 1, range: 1...200) }
+                dim(.shank) { NumberField(title: "Shank Ø", value: $tool.shankDiameter, step: 0.1, range: 0.5...25) }
                 IntField(title: "Flutes", value: $tool.flutes, range: 1...8)
-                NumberField(title: "Flute length", value: $tool.fluteLength, step: 1, range: 0.5...200)
-                NumberField(title: "Stick-out", value: $tool.stickout, step: 1, range: 1...200)
-                NumberField(title: "Shank Ø", value: $tool.shankDiameter, step: 0.1, range: 0.5...25)
+            } header: {
+                Text("Geometry")
+            } footer: {
+                Text("Stick-out is measured from the collet nut to the tip. Hover a field to see its dimension.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section {
                 NumberField(title: "Spindle", value: $tool.defaults.rpm, unit: "RPM", step: 500, range: 0...60000, digits: 0)
@@ -248,15 +289,11 @@ struct ToolEditor: View {
                 NumberField(title: "Stepover", value: $tool.defaults.stepoverPercent, unit: "%", step: 1, range: 1...100, digits: 0)
                 NumberField(title: "Ramp angle", value: $tool.defaults.rampAngle, unit: "°", step: 0.5, range: 0.5...45, digits: 1)
                 LabeledContent("Chip load", value: String(format: "%.3f mm/tooth", tool.chipLoad))
-                HStack {
-                    Text("Set feed from chip load:")
-                    ForEach([0.03, 0.05, 0.08, 0.12], id: \.self) { cl in
-                        Button(String(format: "%.2f", cl)) {
-                            tool.defaults.feed = FeedsAndSpeeds.feed(rpm: tool.defaults.rpm, flutes: tool.flutes, chipLoad: cl).rounded()
-                        }
-                        .controlSize(.small)
+                Button { showCalculator = true } label: { Label("Feeds & Speeds Calculator…", systemImage: "gauge.with.dots.needle.67percent") }
+                    .sheet(isPresented: $showCalculator) {
+                        FeedsCalculatorSheet(tool: tool, material: .named("mdf"), destination: "Tool Defaults", current: tool.defaults,
+                                             machineID: machineID, slotting: true) { tool.defaults = $0 }
                     }
-                }
             } header: {
                 Text("Default cutting data (MDF baseline)")
             } footer: {

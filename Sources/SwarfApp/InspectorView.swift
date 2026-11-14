@@ -385,6 +385,8 @@ struct OperationInspector: View {
     @Environment(\.openSettings) private var openSettings
     let id: UUID
 
+    @State private var showCalculator = false
+
     func b<T>(_ kp: WritableKeyPath<CAMCore.Operation, T>) -> Binding<T> {
         model.opBinding(id, kp) ?? .constant(CAMCore.Operation.placeholder[keyPath: kp])
     }
@@ -439,7 +441,22 @@ struct OperationInspector: View {
                     NumberField(title: "Ramp angle", value: b(\.cutting.rampAngle), unit: "°", step: 0.5, range: 0.5...45, digits: 1)
                 }
                 let advice = FeedsAndSpeeds.check(tool: op.tool, data: op.cutting, material: .named(model.job.stock.materialID))
-                LabeledContent("Chip load", value: String(format: "%.3f mm/tooth", advice.chipLoad))
+                LabeledContent("Chip load") {
+                    HStack {
+                        Text(String(format: "%.3f mm/tooth", advice.chipLoad))
+                        Button("Calculate…") { showCalculator = true }
+                            .controlSize(.small)
+                            .help("Chip-load calculator for this operation, the project's material and machine")
+                    }
+                }
+                .sheet(isPresented: $showCalculator) {
+                    // Finishing passes and light stepovers cut from the side; everything else includes full-width cuts.
+                    let side = op.kind == .parallelFinish || op.kind == .waterlineFinish
+                    FeedsCalculatorSheet(tool: op.tool, material: .named(model.job.stock.materialID), destination: "Operation",
+                                         current: op.cutting, machineID: model.job.machineID, slotting: !side) { c in
+                        b(\.cutting).wrappedValue = c
+                    }
+                }
                 ForEach(advice.warnings, id: \.self) { w in Label(w, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange) }
                 let material = Material.named(model.job.stock.materialID)
                 Button(material.adjustmentSummary == nil ? "Reset to tool defaults" : "Reset to tool defaults for \(material.name)") {
@@ -507,14 +524,23 @@ struct OperationInspector: View {
         Section("Rest machining") {
             Toggle("Only cut what a larger tool left", isOn: Binding(get: { op.restFrom != nil }, set: { on in
                 b(\.restFrom).wrappedValue = on ? choices.first : nil
+                b(\.restLeftStock).wrappedValue = on && choices.first?.kind == .roughing ? CAMCore.Operation.hogSkin : 0
             }))
             .disabled(op.restFrom == nil && choices.isEmpty)
             if let r = op.restFrom {
                 Picker("Larger tool", selection: Binding(get: { r.id }, set: { newID in
-                    if let t = choices.first(where: { $0.id == newID }) { b(\.restFrom).wrappedValue = t }
+                    if let t = choices.first(where: { $0.id == newID }) {
+                        b(\.restFrom).wrappedValue = t
+                        if t.kind == .roughing && op.restLeftStock == 0 { b(\.restLeftStock).wrappedValue = CAMCore.Operation.hogSkin }
+                    }
                 })) {
                     if !choices.contains(where: { $0.id == r.id }) { Text(r.name).tag(r.id) }
                     ForEach(choices) { t in Text("T\(t.number) · \(t.name)").tag(t.id) }
+                }
+                NumberField(title: "It left extra stock", value: b(\.restLeftStock), step: 0.05, range: 0...3)
+                if op.restLeftStock > 0 {
+                    Text(String(format: "The larger tool's pass left %.2g mm on walls and floors (its stock to leave). This pass takes that skin too, so it sets the final size even if Z was re-zeroed slightly differently after the bit swap.", op.restLeftStock))
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Text(String(format: "Cuts only where the Ø%g mm tool couldn't reach: inside corners, narrow slots and tight curves. Uses this operation's area, depth and stock to leave, so match them to the operation it follows.", r.diameter))
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

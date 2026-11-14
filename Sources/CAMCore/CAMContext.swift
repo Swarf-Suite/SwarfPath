@@ -305,7 +305,7 @@ public final class CAMContext: @unchecked Sendable {
         let conservative = op.kind == .roughing || op.kind == .parallelFinish || op.kind == .waterlineFinish
         let t = op.tool
         let shank = t.hasWideShank ? "|shank\(t.shankDiameter)/\(t.fluteLength)" : ""
-        return "\(conservative)|\(t.kind)|\(t.diameter)|\(t.cornerRadius)|\(t.vAngle)|\(t.tipDiameter)\(shank)|\(op.stockToLeaveXY)|\(op.stockToLeaveZ)|\(op.boundary)|\(op.boundaryMargin)|\(floorZ(op))|\(regions(for: op).map { "\($0.min)\($0.max)\($0.kind)\(String(describing: $0.protectBelowZ))" })"
+        return "\(conservative)|\(t.kind.cutsFlat ? ToolKind.flat : t.kind)|\(t.diameter)|\(t.cornerRadius)|\(t.vAngle)|\(t.tipDiameter)\(shank)|\(op.stockToLeaveXY)|\(op.stockToLeaveZ)|\(op.boundary)|\(op.boundaryMargin)|\(floorZ(op))|\(regions(for: op).map { "\($0.min)\($0.max)\($0.kind)\(String(describing: $0.protectBelowZ))" })"
     }
 
     /// Tool-tip height field for an operation (cached).
@@ -432,6 +432,10 @@ public final class CAMContext: @unchecked Sendable {
                                       op.kind == .vcarve ? " — set a depth limit or use a wider-angle V-bit" : ""))
         }
         if let w = restWarning(op) { tp.warnings.append(w) }
+        if op.tool.kind == .roughing && (op.kind == .pocket || op.kind == .roughing)
+            && min(op.stockToLeaveZ, op.stockToLeaveXY) < Operation.hogSkin - 0.1 - 1e-9 {
+            tp.warnings.append(String(format: "A hogging bit's pass should leave about %.1f mm on walls and floors for the finishing bit: Z is rarely re-zeroed exactly the same after a bit swap, and its corn-cob flutes leave a rough wall.", Operation.hogSkin))
+        }
         // A wide shank is already kept off the model above the flutes (see `toolField`), so cutting deeper is fine.
         if op.kind != .dowelHoles && !(op.tool.hasWideShank && op.kind != .vcarve && op.kind != .drill && op.kind != .cutout && op.kind != .facing)
             && stockTop - deepest > op.tool.fluteLength + 0.01 {

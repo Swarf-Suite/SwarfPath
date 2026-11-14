@@ -58,6 +58,17 @@ The wide trench is in (`cutout` in Operations.swift, `CutoutTrench` in Job.swift
 - **Outer pass beyond the stock.** With a small stock margin the outer pass cuts air along the edge. It's harmless but
   wastes time; it could be clipped to the stock.
 
+## Feeds and speeds
+
+The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:
+
+- **Check the chip-load table on the FoxAlien.** The ranges come from typical router-bit charts; tune them from real cuts.
+- **Ball nose at shallow depth.** A ball cuts with less than its full diameter near the tip, so its real chip is thinner;
+  the calculator treats it as full diameter.
+- **Machine Z speed.** Profiles have one max feed; plunge is capped by bit size, not by the machine's Z limit.
+- **Hogging bit for 3D roughing then pockets:** the finishing pass for a hogged pocket is added automatically, but a
+  pocket whose tool is changed to a hogging bit later in the inspector gets only the warning, not the finishing pass.
+
 ## App
 
 - **Check that the export file name is remembered.** Typing a name and the live rename were checked in the

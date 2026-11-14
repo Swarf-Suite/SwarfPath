@@ -1,15 +1,44 @@
 import Foundation
 
 public enum ToolKind: String, Codable, Sendable, CaseIterable, Identifiable {
-    case flat, ball, bullNose, vBit, drill
+    case flat, roughing, ball, bullNose, vBit, drill
     public var id: String { rawValue }
     public var displayName: String {
         switch self {
         case .flat: return "Flat End Mill"
+        case .roughing: return "Roughing (Hogging)"
         case .ball: return "Ball Nose"
         case .bullNose: return "Bull Nose"
         case .vBit: return "V-Bit"
         case .drill: return "Drill"
+        }
+    }
+    /// One line on what the bit is for (the Add Tool dialog).
+    public var blurb: String {
+        switch self {
+        case .flat: return "Square end. Pockets, cutouts, facing and flat floors."
+        case .roughing: return "Corn-cob flutes. Clears material fast; a flat bit finishes after it."
+        case .ball: return "Round end. 3D finishing of curved surfaces."
+        case .bullNose: return "Square end with rounded corners. Roughing and finishing with a small fillet."
+        case .vBit: return "Pointed. V-carving, engraving and chamfers."
+        case .drill: return "Pointed twist drill. Plunges holes."
+        }
+    }
+    /// Cuts with a flat end: the same cutter shape as a flat end mill.
+    public var cutsFlat: Bool { self == .flat || self == .roughing }
+}
+
+/// Which way the flutes push chips. It doesn't change the toolpath, only the recommended chip load.
+public enum FluteStyle: String, Codable, Sendable, CaseIterable, Identifiable {
+    case unspecified, upcut, downcut, compression, straight
+    public var id: String { rawValue }
+    public var displayName: String {
+        switch self {
+        case .unspecified: return "Not set"
+        case .upcut: return "Up-cut"
+        case .downcut: return "Down-cut"
+        case .compression: return "Compression"
+        case .straight: return "Straight"
         }
     }
 }
@@ -44,6 +73,12 @@ public struct Tool: Codable, Sendable, Identifiable, Equatable, Hashable {
     public var shankDiameter: Double = 6
     public var defaults: CuttingData
     public var notes: String = ""
+    /// Flute style (optional so older libraries still load).
+    public var flute: FluteStyle? = nil
+    public var fluteStyle: FluteStyle {
+        get { flute ?? .unspecified }
+        set { flute = newValue == .unspecified ? nil : newValue }
+    }
     /// Z levels (descending) for cutting from `top` down to `bottom`: the depth split into equal passes no deeper than `stepdown`.
     public func passLevels(top: Double, bottom: Double, stepdown: Double) -> [Double] {
         let total = top - bottom
@@ -76,7 +111,7 @@ public struct Tool: Codable, Sendable, Identifiable, Equatable, Hashable {
         let r = radius + extraRadius
         guard d <= r + 1e-9 else { return nil }
         switch kind {
-        case .flat:
+        case .flat, .roughing:
             return 0
         case .ball:
             return r - (max(0, r * r - d * d)).squareRoot()
@@ -111,7 +146,7 @@ public struct Tool: Codable, Sendable, Identifiable, Equatable, Hashable {
     /// True when the shank is wider than the cutter (a 1 mm bit on a 1/8" shank). Above the flutes such a shank would
     /// rub a wall the cutter itself clears, so the engine keeps it off the model (see `CAMContext.toolField`).
     public var hasWideShank: Bool {
-        (kind == .flat || kind == .ball || kind == .bullNose) && shankDiameter > diameter + 0.01 && fluteLength > 0
+        (kind.cutsFlat || kind == .ball || kind == .bullNose) && shankDiameter > diameter + 0.01 && fluteLength > 0
     }
 
     /// Chip load (mm/tooth) at the default feed.
@@ -170,9 +205,8 @@ public enum FeedsAndSpeeds {
 
     public static func check(tool: Tool, data: CuttingData, material: Material) -> Advice {
         let cl = data.feed / max(1, data.rpm) / Double(max(1, tool.flutes))
-        // Scale the window with cutter diameter relative to 6 mm.
-        let s = max(0.3, min(2, tool.diameter / 6))
-        let lo = material.chipLoadRange.lowerBound * s, hi = material.chipLoadRange.upperBound * s
+        let win = window(tool: tool, material: material)
+        let lo = win.lowerBound, hi = win.upperBound
         var w: [String] = []
         if cl < lo { w.append(String(format: "Chip load %.3f mm is low (rubbing / heat). Increase feed or reduce RPM.", cl)) }
         if cl > hi { w.append(String(format: "Chip load %.3f mm is high (tool stress). Reduce feed or increase RPM.", cl)) }
@@ -180,6 +214,13 @@ public enum FeedsAndSpeeds {
         if data.stepdown > tool.fluteLength { w.append("Stepdown exceeds flute length.") }
         if data.plunge > data.feed { w.append("Plunge rate is higher than cutting feed.") }
         return Advice(chipLoad: cl, warnings: w)
+    }
+
+    /// The chip-load window (mm/tooth) outside which `check` warns: the material's range, scaled with cutter diameter
+    /// relative to 6 mm.
+    public static func window(tool: Tool, material: Material) -> ClosedRange<Double> {
+        let s = max(0.3, min(2, tool.diameter / 6))
+        return (material.chipLoadRange.lowerBound * s)...(material.chipLoadRange.upperBound * s)
     }
 
     /// Feed for a target chip load.

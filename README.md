@@ -127,10 +127,13 @@ also set climb or conventional cutting, stock to leave, and which keep-out regio
 
 ## Tool library
 
-Click **Edit Tool Library…** in an operation's Tool section (or press ⇧⌘T, or open **Swarf ▸ Settings ▸ Tool Library**) to add, edit, duplicate or delete tools. Flat, ball nose,
-bull nose, V-bit and drill tools are supported. Each tool stores its diameter, flute length,
-stick-out and default cutting data, and Swarf shows the chip load with warnings when values look
-risky. The library is saved in `~/Library/Application Support/Swarf/tools.json`. You can import
+Click **Edit Tool Library…** in an operation's Tool section (or press ⇧⌘T, or open **Swarf ▸ Settings ▸ Tool Library**) to add, edit, duplicate or delete tools. Flat, roughing (hogging), ball nose,
+bull nose, V-bit and drill tools are supported, picked from a dialog with a picture of each. Each tool stores its diameter, flute length,
+stick-out, flute style and default cutting data, with a labelled diagram of the bit, and Swarf shows the chip load with warnings when values look
+risky. A **Feeds & Speeds calculator** (in the library and in each operation) aims for a chip load in the recommended
+range for the bit and material, corrects for chip thinning at light side cuts, and caps the feed at the machine's
+maximum, slowing the spindle to keep the chip load when that limit decides. With a hogging bit in the library, pockets
+and 3D roughing use it, leaving 0.3 mm for a flat finishing pass in a separate file, so Z can be re-zeroed after the swap. The library is saved in `~/Library/Application Support/Swarf/tools.json`. You can import
 Fusion 360 tool libraries, and import or export Swarf's own JSON.
 
 The starter library includes 6 mm flat and ball-nose compression cutters, smaller flat and ball

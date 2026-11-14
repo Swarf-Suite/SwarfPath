@@ -343,14 +343,20 @@ final class ProjectModel: ObservableObject {
                 ?? ToolLibrary.starter.tools[0]
         }
         let tool: Tool
+        let hog = lib.closest(kind: .roughing, diameter: 6)
         switch kind {
         case .parallelFinish, .waterlineFinish: tool = pick(.ball)
         case .vcarve: tool = pick(.vBit)
+        case .roughing: tool = hog ?? pick(.flat)
         default: tool = pick(.flat)
         }
-        let op = CAMCore.Operation(kind: kind, tool: tool, material: .named(job.stock.materialID))
+        let material = CAMCore.Material.named(job.stock.materialID)
+        // A pocket with a hogging bit in the library: hogging first, then the flat bit finishes (two files).
+        let ops = kind == .pocket && hog != nil ? JobTemplates.pockets(flat: tool, hog: hog, material: material)
+            : [CAMCore.Operation(kind: kind, tool: tool, material: material)]
+        let op = ops[0]
         // Dowel holes are always drilled first, while the stock is still where side A will be machined.
-        updateJob("Add Operation") { j in if kind == .dowelHoles { j.operations.insert(op, at: 0) } else { j.operations.append(op) } }
+        updateJob("Add Operation") { j in if kind == .dowelHoles { j.operations.insert(op, at: 0) } else { j.operations += ops } }
         selection = .operation(op.id)
         announceScaling(tool)
     }
@@ -426,7 +432,9 @@ final class ProjectModel: ObservableObject {
         let later = job.operations.suffix(from: min(mine + 1, job.operations.count)).map(\.tool)
         var seen = Set<UUID>()
         return (earlier + later + ToolLibraryStore.shared.library.tools).filter { t in
-            [.flat, .ball, .bullNose].contains(t.kind) && t.diameter > op.tool.diameter + 1e-6 && seen.insert(t.id).inserted
+            [.flat, .roughing, .ball, .bullNose].contains(t.kind) && seen.insert(t.id).inserted
+                // A hogging bit leaves a skin, so the same size is worth following too.
+                && (t.diameter > op.tool.diameter + 1e-6 || (t.kind == .roughing && t.diameter >= op.tool.diameter - 1e-6))
         }
     }
 

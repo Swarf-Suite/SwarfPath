@@ -73,6 +73,10 @@ Three targets share one engine:
    a time; parallel and waterline just skip positions that touch nothing. A shank wider than the cutter
    (`Tool.hasWideShank`) is kept off the model above the flutes in `toolField` (a disc dilation minus the flute
    length), so its diameter and flute length are in `fieldKey`.
+   Feeds and speeds (FeedsCalculator.swift): a chip-load table by diameter for MDF, scaled by material, bit type and
+   flute style and kept inside `FeedsAndSpeeds.window` (what the warnings accept); chip thinning; machine max feed caps
+   the feed and slows the spindle. A `.roughing` (hogging) bit cuts like a flat (`ToolKind.cutsFlat`); pockets with it
+   leave `Operation.hogSkin`, and `JobTemplates.pockets` adds a flat rest pass with `restLeftStock` to take that skin.
 6. `CAMContext.generate(op)` is the single entry point: it validates settings, dispatches by
    `OperationKind`, rejects non-finite moves, and appends warnings (feeds, flute length, test-cut, below
    stock). `JobTemplates.fullProcessing` (Templates.swift) picks operations from model traits.

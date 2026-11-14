@@ -155,16 +155,34 @@ open build/Swarf.app</pre>
 <section class="chapter">
   <h2>7 · The tool library</h2>
   <figure class="w80"><img src="../screenshot-tools.png" alt="Tool library"><figcaption>Swarf ▸ Settings ▸ Tool Library.</figcaption></figure>
-  <p>Click <b>Edit Tool Library…</b> in the Tool section of any operation's settings, or press ⇧⌘T (Window ▸ Tool Library…). It is also under <b>Swarf ▸ Settings…</b> (⌘,) ▸ <b>Tool Library</b>. Select a tool to edit it, then click <b>Save</b> (⌘S) to keep the changes or <b>Revert</b> to undo them. Until you save, the tool is marked “(edited)” and nothing else changes; if you pick another tool first, Swarf asks whether to save. <b>Add Tool</b> is at the bottom of the list, and Duplicate and Delete are on each tool's right-click menu.
+  <p>Click <b>Edit Tool Library…</b> in the Tool section of any operation's settings, or press ⇧⌘T (Window ▸ Tool Library…). It is also under <b>Swarf ▸ Settings…</b> (⌘,) ▸ <b>Tool Library</b>. Select a tool to edit it, then click <b>Save</b> (⌘S) to keep the changes or <b>Revert</b> to undo them. Until you save, the tool is marked “(edited)” and nothing else changes; if you pick another tool first, Swarf asks whether to save. <b>Add Tool…</b> is at the bottom of the list: it shows a picture of each kind of bit; click one and click <b>Add</b> (or double-click it). Duplicate and Delete are on each tool's right-click menu.
     <b>Import…</b> reads Fusion 360 tool libraries and Swarf JSON files, and <b>Export…</b> saves your library. <b>Reset…</b> restores the starter set after asking.</p>
   <ul>
-    <li><b>Type:</b> flat end mill, ball nose, bull nose (with corner radius), V-bit (with included angle and tip diameter) or drill.</li>
-    <li><b>Geometry:</b> diameter, flutes, flute length (the cutting length), stick-out and shank diameter. Swarf warns you when a cut is deeper than the flute length.</li>
-    <li><b>Default cutting data</b> (an MDF baseline): spindle speed, feed, plunge, stepdown, stepover and ramp angle. The chip-load readout and warnings help you choose sensible values.</li>
+    <li><b>Type:</b> flat end mill, roughing (hogging) bit, ball nose, bull nose (with corner radius), V-bit (with included angle and tip diameter) or drill.
+      <b>Flute style</b> (up-cut, down-cut, compression or straight) is optional; down-cut and straight flutes get a slightly lower recommended chip load.</li>
+    <li><b>Geometry:</b> diameter, flutes, flute length (the cutting length), stick-out and shank diameter. A diagram of the bit labels each
+      dimension with a letter that matches the letter beside its field; hover over a field to highlight its dimension. Stick-out is measured from the collet nut to the tip. Swarf warns you when a cut is deeper than the flute length.</li>
+    <li><b>Default cutting data</b> (an MDF baseline): spindle speed, feed, plunge, stepdown, stepover and ramp angle. The chip-load readout and warnings help you choose sensible values, and the calculator below does it for you.</li>
     <li><b>Tool number:</b> the T number written to the G-code.</li>
   </ul>
   <p>The starter library includes 6 mm flat and ball-nose compression cutters (50 mm flutes), 1/8", 1/4" and 3 mm cutters, a 6 mm bull nose,
     60° and 45° 6 mm V-bits, and 2 mm, 1 mm and 0.9 mm flat bits on 1/8" and 4 mm shanks for rest machining. New cutouts, pockets and drilling use the 6 mm flat, 3D finishing uses the 6 mm ball, and V-carving uses the 60° V-bit.</p>
+  <h3>Feeds &amp; Speeds calculator</h3>
+  <p>Click <b>Feeds &amp; Speeds Calculator…</b> under a tool's cutting data (for its MDF defaults), or <b>Calculate…</b> beside the chip load in an
+    operation's Feeds &amp; speeds (for that operation, in the project's material on the project's machine).
+    Feed = spindle speed × flutes × chip load, the thickness of chip each cutting edge takes.</p>
+  <ul>
+    <li><b>Chip load:</b> the slider runs from gentle to aggressive within the range recommended for the bit's size, type and flute style in that material. A rigid machine can sit towards the aggressive end.</li>
+    <li><b>Cut:</b> a full-width slot (cutouts and the first pass of a pocket) or a side cut of a given width. A narrow side cut makes a thinner chip than the feed per tooth, so the feed goes up to keep the chip the same (chip thinning).</li>
+    <li><b>Machine limits:</b> the feed never goes over the machine's fastest feed (you can lower it there). When that limit decides, the spindle is slowed to keep the chip load: the same cutting speed, but quieter and cooler. Turn off <b>Fastest spindle speed</b> to choose the speed yourself; if it's faster than needed, the calculator says which speed gives the target chip.</li>
+    <li><b>Apply</b> sets spindle speed, feed and plunge (plunge is capped by bit size), and the stepdown too if you tick it.</li>
+  </ul>
+  <p>The values are starting points from typical chip-load charts. Listen to the cut and look at the chips: dust and burning mean the chip is too small, a straining spindle means too big.</p>
+  <h3>Roughing (hogging) bits</h3>
+  <p>A corn-cob roughing bit clears material fast but leaves a rough wall. When the library has one, <b>Full Processing</b> and new pocket and 3D
+    roughing operations use it. A hogging pocket leaves <b>0.3 mm</b> on walls and floors, and Swarf adds <b>Pockets (finish)</b> with the flat bit right after it.
+    That finishing pass uses rest machining with <b>It left extra stock</b> set to 0.3 mm, so it only cuts the skin and the corners the hogging bit couldn't reach, not the whole pocket again.
+    The two bits go in separate G-code files, so you can swap bits between them. Keep the same XY zero and re-zero Z after the swap; the 0.3 mm skin means a slightly different Z can't leave a step in the floor. Cutouts and finishing never use the hogging bit.</p>
   <div class="tip">When you edit a tool in the library, open projects that use it pick up the new geometry. Each operation keeps its own feeds and T number,
     so changing the library never silently changes the feeds of an operation you've already tuned.</div>
 </section>
