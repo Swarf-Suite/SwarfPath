@@ -187,7 +187,7 @@ open build/Swarf.app</pre>
       it cuts only the skins and the corners the hogging bit couldn't reach, not the whole pocket again.</li>
     <li><b>Cutouts</b> with the hogging bit stop <b>3 mm above the stock bottom</b> (<b>Stop above bottom</b>, under Stock to leave) and leave 0.3 mm on the wall, so the part stays held.
       The <b>Cutout</b> after it, with the flat bit, follows it: one ramp down the hogged slot to where it stopped, the rest of the depth with the tabs, then the finishing pass to size.</li>
-    <li>Full Processing puts all the hogging work first, then the finishing bits, then the final cutout: one bit swap. Each bit gets its own G-code file.
+    <li>Full Processing puts all the hogging work first, then the finishing bits, then the final cutout: one bit swap. If you add operations yourself, <b>Fewer Bit Changes</b> under the operation list does the same grouping. Each bit gets its own G-code file.
       Keep the same XY zero and re-zero Z after the swap; the 3 mm floor skin means a slightly different Z can't leave a step.</li>
     <li>If you change a pocket's or cutout's tool to a hogging bit yourself, Swarf sets those skins and offers <b>Add Finishing Pass</b> under the tool.
       Changing it back to another bit clears them.</li>
@@ -202,6 +202,11 @@ open build/Swarf.app</pre>
   <p>An operation is one machining step with one tool. Click <b>Full Processing</b> in the sidebar to let Swarf look at the model and add what it needs:
     facing if the model sits below the stock top, roughing and finishing for curved tops, pockets for cavities, and a cutout with tabs.
     Or click <b>+</b> to add operations yourself. Operations run in list order. Drag them to reorder.</p>
+  <p><b>Fewer Bit Changes</b>, under the operation list, reorders the operations so each bit does all its work in one go. A new G-code file starts at every bit change,
+    so this also means fewer files, fewer stops to change bits and re-zero Z, and files you can run on different days. The button shows the bit changes now and after
+    (“3 → 1”), and greys out when the order is already the best it finds. It never breaks the orders that matter: dowel holes, side A and side B stay in sequence,
+    facing keeps its place, a pass that follows another stays after it, 3D finishing stays after the roughing and pockets that clear its area, and the cutout that frees
+    the part stays last. Undo with ⌘Z.</p>
   <p>Swarf recalculates toolpaths automatically when you change a setting or replace the model. To force a fresh calculation of
     every operation, click <b>Recalculate All Toolpaths</b> under the operation list, <b>Recalculate All</b> in the toolbar, or press ⌘G.</p>
   <table>

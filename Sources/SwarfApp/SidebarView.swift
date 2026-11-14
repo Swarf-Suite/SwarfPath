@@ -101,6 +101,20 @@ struct SidebarView: View {
                     .help("Throw away every calculated toolpath and calculate them all again (⌘G)")
                     .selectionDisabled()
                     .padding(.vertical, 4)
+                    let changes = model.bitChanges
+                    Button { model.orderForFewestBitChanges() } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.up.arrow.down")
+                            Text(changes.best < changes.now
+                                 ? "Fewer Bit Changes: \(changes.now) → \(changes.best)"
+                                 : changes.now == 1 ? "1 bit change: fewest" : "\(changes.now) bit changes: fewest")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .disabled(changes.best >= changes.now)
+                    .help("Reorders the operations so each bit does all its work in one go: fewer stops to change bits and re-zero Z, and each bit's G-code file can run on its own. Passes that follow another stay after it, 3D finishing stays after the roughing and pockets, and the cutout that frees the part stays last. Undo with ⌘Z.")
+                    .selectionDisabled()
+                    .padding(.bottom, 4)
                 }
                 if model.job.operations.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {

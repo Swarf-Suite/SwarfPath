@@ -90,7 +90,9 @@ Three targets share one engine:
    cutout starts its roughing where that one stopped. Full Processing orders hogging work first (one bit swap).
 6. `CAMContext.generate(op)` is the single entry point: it validates settings, dispatches by
    `OperationKind`, rejects non-finite moves, and appends warnings (feeds, depth vs flutes or collet stick-out,
-   hogging skins, test-cut, below stock). `JobTemplates.fullProcessing` (Templates.swift) picks operations from model traits.
+   hogging skins, test-cut, below stock). `JobTemplates.fullProcessing` (Templates.swift) picks operations from model traits;
+   `JobTemplates.orderedForFewestToolChanges` (Ordering.swift) regroups a job by tool under fixed ordering rules (the
+   sidebar's "Fewer Bit Changes").
 7. Two-sided jobs (Flip.swift): `Job.flip` turns them on and `Operation.side` (Optional) puts an operation on side B.
    Side B uses its own `CAMContext` (`makeSideB`/`sideB`), built from `PlacedModel.rolledAboutX()`: (x, y, z) →
    (x, W − y, T − z), so side-B toolpaths are in the machine's coordinates after the flip. `FrameProtection` keeps

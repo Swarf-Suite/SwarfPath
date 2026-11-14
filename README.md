@@ -122,6 +122,10 @@ Swarf keeps that shank off the walls above the flutes, so beside a wall the bit 
 top of the wall, and it tells you how much it had to leave. After a simulation, Swarf suggests a rest pass when a
 clearing operation leaves material a smaller bit in your library could reach.
 
+**Fewer Bit Changes**, under the operation list, regroups the operations so each bit does all its work in one go (one
+G-code file per bit change), keeping the orders that matter: rest passes after what they follow, 3D finishing after
+roughing, the freeing cutout last, and two-sided steps in sequence.
+
 Every operation has its own tool, spindle speed, feed, plunge rate, stepdown and stepover. You can
 also set climb or conventional cutting, stock to leave, and which keep-out regions apply.
 

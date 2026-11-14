@@ -143,6 +143,10 @@ final class ProjectModel: ObservableObject {
             }
             .store(in: &cancellables)
         jobChanged()
+        // Developer hook: -SwarfAutoOrder YES presses "Fewer Bit Changes" once a project is open (automated screenshots).
+        if UserDefaults.standard.bool(forKey: "SwarfAutoOrder") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.orderForFewestBitChanges() }
+        }
     }
 
     private func syncTools(from lib: ToolLibrary) {
@@ -513,6 +517,27 @@ final class ProjectModel: ObservableObject {
     }
 
     /// Dowel holes, then side A, then side B, keeping the order within each.
+    /// Bit changes now, and with the operations in the order that needs the fewest.
+    var bitChanges: (now: Int, best: Int) {
+        (JobTemplates.toolChanges(job.operations),
+         JobTemplates.toolChanges(JobTemplates.orderedForFewestToolChanges(job.operations)))
+    }
+
+    /// Reorders the operations for the fewest bit changes (see `JobTemplates.orderedForFewestToolChanges`). Undoable.
+    func orderForFewestBitChanges() {
+        let before = JobTemplates.toolChanges(job.operations)
+        let ordered = JobTemplates.orderedForFewestToolChanges(job.operations)
+        let after = JobTemplates.toolChanges(ordered)
+        guard ordered.map(\.id) != job.operations.map(\.id) else {
+            showNotice("The operations are already in the order with the fewest bit changes it can find (\(before)).")
+            return
+        }
+        updateJob("Order for Fewest Bit Changes") { $0.operations = ordered }
+        showNotice(after < before
+                   ? "Reordered: \(before) bit change\(before == 1 ? "" : "s") down to \(after). Each bit still gets its own G-code file. Undo with ⌘Z."
+                   : "Reordered to group the operations by bit (\(after) bit change\(after == 1 ? "" : "s")). Undo with ⌘Z.")
+    }
+
     static func sortByStage(_ ops: inout [CAMCore.Operation]) {
         ops = FlipStage.allCases.flatMap { s in ops.filter { $0.flipStage == s } }
     }
