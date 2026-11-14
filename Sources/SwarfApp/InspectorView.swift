@@ -171,26 +171,40 @@ struct StockInspector: View {
                 }
                 Text("New operations take their feeds from the tool's defaults, scaled for this material.").font(.caption).foregroundStyle(.secondary)
             }
-            Section("Stock size") {
-                Toggle("Size from model + margins", isOn: model.jobBinding(\.stock.autoSize, name: "Stock Size"))
+            Section {
+                Picker("Size", selection: Binding(get: { model.job.stock.autoSize }, set: { model.setStockAutoSize($0) })) {
+                    Text("Model + margins").tag(true)
+                    Text("Exact size").tag(false)
+                }
+                .pickerStyle(.segmented)
                 if model.job.stock.autoSize {
                     NumberField(title: "XY margin", value: model.jobBinding(\.stock.marginXY), step: 1, range: 0...500)
                     NumberField(title: "Extra on top", value: model.jobBinding(\.stock.extraTop), step: 0.5, range: 0...500)
                     NumberField(title: "Extra below", value: model.jobBinding(\.stock.extraBottom), step: 0.5, range: 0...500)
+                    if let p = model.placed {
+                        LabeledContent("Stock", value: String(format: "%.1f × %.1f × %.1f mm", p.stockSize.x, p.stockSize.y, p.stockSize.z))
+                    }
                 } else {
-                    NumberField(title: "Width (X)", value: model.jobBinding(\.stock.size.x), step: 1, range: 1...5000)
-                    NumberField(title: "Depth (Y)", value: model.jobBinding(\.stock.size.y), step: 1, range: 1...5000)
-                    NumberField(title: "Thickness (Z)", value: model.jobBinding(\.stock.size.z), step: 0.5, range: 0.5...500)
-                    Button("Fit to model") {
-                        if let p = model.placed {
-                            let s = p.modelBounds.size
-                            model.updateJob("Fit Stock") { $0.stock.size = V3(s.x + 10, s.y + 10, s.z) }
+                    NumberField(title: "Length (X)", value: model.jobBinding(\.stock.size.x, name: "Stock Size"), step: 1, range: 1...5000)
+                    NumberField(title: "Width (Y)", value: model.jobBinding(\.stock.size.y, name: "Stock Size"), step: 1, range: 1...5000)
+                    NumberField(title: "Depth (Z)", value: model.jobBinding(\.stock.size.z, name: "Stock Size"), step: 0.5, range: 0.5...500)
+                    if let p = model.placed {
+                        let m = p.modelBounds.size
+                        LabeledContent("Model", value: String(format: "%.1f × %.1f × %.1f mm", m.x, m.y, m.z))
+                        if p.modelOutsideStock {
+                            Label("The model doesn't fit inside this stock (or sticks out at its offset). Anything outside is not machined correctly.",
+                                  systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
-                if let p = model.placed {
-                    LabeledContent("Result", value: String(format: "%.1f × %.1f × %.1f mm", p.stockSize.x, p.stockSize.y, p.stockSize.z))
-                }
+            } header: {
+                Text("Stock size")
+            } footer: {
+                Text(model.job.stock.autoSize
+                     ? "The stock is the model's size plus these margins."
+                     : "Enter the blank's real size: length (X) left to right, width (Y) front to back, depth (Z) its thickness. The model sits in it as set under Model position in stock.")
+                    .font(.caption)
             }
             Section {
                 Toggle("Test cut mode", isOn: model.jobBinding(\.testCutSettings.enabled, name: "Test Cut Mode"))

@@ -137,7 +137,7 @@ open build/Swarf.app</pre>
   <p>Select <b>Stock &amp; Work Zero</b> in the sidebar.</p>
   <ul>
     <li><b>Material:</b> MDF, plywood, softwood, hardwood, acrylic, HDPE, foam or aluminium. The material scales each tool's default speeds and feeds (for example hardwood: feed and plunge ×0.8, stepdown ×0.75). Changing it later leaves existing operations as they are, and a banner offers to rescale them all.</li>
-    <li><b>Size from model + margins</b> sizes the stock automatically: set the XY margin and any extra on top or below. Turn it off to enter your real blank: Width (X), Depth (Y) and Thickness (Z).</li>
+    <li><b>Size</b>: <b>Model + margins</b> sizes the stock automatically from the XY margin and any extra on top or below. <b>Exact size</b> takes your real blank: Length (X) left to right, Width (Y) front to back and Depth (Z), its thickness. Switching to Exact size starts from the current stock size, and Swarf warns you if the model doesn't fit.</li>
     <li><b>Vertical</b> places the model at the top, centre or bottom of the stock. <b>Offset X / Y</b> shifts it within the blank.</li>
     <li><b>Work zero</b>: pick one of 9 points on the stock, and set <b>Z zero</b> to the stock top or the bed. Swarf's default is the <b>centre of the left edge, top of stock</b>. Toolpaths start from the work zero, so the preview, the simulation and the G-code all begin at the point you choose.</li>
     <li><b>Safe height</b> is how far above the stock the cutter travels between cuts.</li>

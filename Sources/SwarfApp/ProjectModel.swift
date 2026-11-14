@@ -182,6 +182,9 @@ final class ProjectModel: ObservableObject {
             let n = k.split(separator: ",").compactMap { Double($0) }
             if n.count == 4 { addRegion(min: V2(n[0], n[1]), max: V2(n[2], n[3])) }
         }
+        // -SwarfSelectStock YES (with -SwarfExactStock YES to switch to an exact size).
+        if d.bool(forKey: "SwarfSelectStock") { DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.selection = .stock } }
+        if d.bool(forKey: "SwarfExactStock") { DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.setStockAutoSize(false) } }
         guard d.bool(forKey: "SwarfAutoProcess"), document.mesh != nil, document.job.operations.isEmpty else { return }
         if d.object(forKey: "SwarfMargin") != nil { updateJob("Stock Margin") { $0.stock.marginXY = d.double(forKey: "SwarfMargin") } }
         if d.bool(forKey: "SwarfFlip") { setFlip(true) }
@@ -755,6 +758,17 @@ final class ProjectModel: ObservableObject {
              (try? enc.encode(c.cutoutTrench)) ?? Data(),
              Data("\(c.stockToLeaveXY)|\(c.cutHoles)|\(c.direction)".utf8)].map { String(decoding: $0, as: UTF8.self) }.joined(separator: "|")
         }.joined(separator: "#")
+    }
+
+    /// Switches between a stock sized from the model plus margins and an exact size. Switching to exact starts from the
+    /// stock size in use now, so nothing moves until a dimension is changed.
+    func setStockAutoSize(_ auto: Bool) {
+        guard auto != job.stock.autoSize else { return }
+        let current = placed?.stockSize
+        updateJob(auto ? "Size Stock from Model" : "Exact Stock Size") { j in
+            j.stock.autoSize = auto
+            if !auto, let s = current { j.stock.size = V3((s.x * 10 - 1e-6).rounded(.up) / 10, (s.y * 10 - 1e-6).rounded(.up) / 10, (s.z * 100 - 1e-6).rounded(.up) / 100) }
+        }
     }
 
     /// Recalculates every toolpath from scratch: discards cached toolpaths and the prepared model geometry.
