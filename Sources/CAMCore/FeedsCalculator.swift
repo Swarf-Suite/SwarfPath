@@ -77,6 +77,19 @@ public enum FeedsCalculator {
         return min(3, 1 / (2 * (ae * (1 - ae)).squareRoot()))
     }
 
+    /// Diameter a ball or bull nose actually cuts with at `axialDepth` (mm) below its tip: the full diameter at or below
+    /// the corner, less above it. Other bits, or nil depth: the full diameter.
+    public static func effectiveDiameter(tool: Tool, axialDepth: Double?) -> Double {
+        guard let ap = axialDepth, ap.isFinite, ap > 0, tool.kind == .ball || tool.kind == .bullNose else { return tool.diameter }
+        return max(0.05 * tool.diameter, min(tool.diameter, 2 * tool.cuttingRadius(depth: ap)))
+    }
+
+    /// Feed multiplier for a ball or bull nose cutting shallower than its corner: the chip at the effective diameter is
+    /// thinner than the feed per tooth by Deff / D. 1 for other bits; at most 3.
+    public static func axialThinning(tool: Tool, axialDepth: Double?) -> Double {
+        min(3, tool.diameter / effectiveDiameter(tool: tool, axialDepth: axialDepth))
+    }
+
     /// Typical stepdown for the bit in this material on a rigid machine, at full width (mm).
     public static func recommendedStepdown(tool: Tool, material: Material) -> Double {
         let perD: Double
@@ -101,6 +114,8 @@ public enum FeedsCalculator {
         public var target: Double = 0.5
         /// How much of the cutter's diameter is cutting sideways (%). 100 = a full-width slot.
         public var engagementPercent: Double = 100
+        /// How deep below its tip a ball or bull nose cuts (mm); nil = deeper than its corner (full diameter).
+        public var axialDepth: Double? = nil
         /// Spindle speed to use; nil = the fastest the machine allows for this chip load.
         public var rpm: Double? = nil
         public var maxFeed: Double
@@ -134,7 +149,10 @@ public enum FeedsCalculator {
         public var chipLoad: Double
         /// Feed per tooth (mm), which is larger than the real chip at light engagement.
         public var feedPerTooth: Double
+        /// Total feed multiplier for chip thinning: sideways (narrow cut) times axial (shallow ball or bull nose).
         public var thinning: Double
+        /// Diameter the bit cuts with at the requested depth (mm).
+        public var effectiveDiameter: Double
         public var limit: Limit
         /// With a fixed spindle speed that the feed cap makes too fast: the slower speed that keeps the chip load.
         public var quieterRPM: Double?
@@ -143,7 +161,11 @@ public enum FeedsCalculator {
     public static func calculate(_ r: Request) -> Result {
         let range = recommendedRange(tool: r.tool, material: r.material)
         let target = range.lowerBound + (range.upperBound - range.lowerBound) * min(1, max(0, r.target))
-        let thin = chipThinning(engagementPercent: r.engagementPercent)
+        // A shallow ball cuts with a smaller circle: the sideways engagement is measured against that, and its chip is
+        // thinner again by Deff / D.
+        let deff = effectiveDiameter(tool: r.tool, axialDepth: r.axialDepth)
+        let ae = min(100, r.engagementPercent * r.tool.diameter / deff)
+        let thin = min(3, chipThinning(engagementPercent: ae) * r.tool.diameter / deff)
         let fpt = target * thin
         let z = Double(max(1, r.tool.flutes))
         let lo = max(1, r.minRPM), hi = max(lo, r.maxRPM)
@@ -169,6 +191,7 @@ public enum FeedsCalculator {
         let plunge = max(10, (min(feed * plungeShare, 150 * max(1, r.tool.diameter), maxPlunge) / 10).rounded() * 10)
         let realFPT = feed / (rpm * z)
         return Result(rpm: rpm, feed: feed, plunge: plunge, range: range, targetChipLoad: target,
-                      chipLoad: realFPT / thin, feedPerTooth: realFPT, thinning: thin, limit: limit, quieterRPM: quieter)
+                      chipLoad: realFPT / thin, feedPerTooth: realFPT, thinning: thin, effectiveDiameter: deff,
+                      limit: limit, quieterRPM: quieter)
     }
 }

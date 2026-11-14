@@ -3,6 +3,42 @@ import Testing
 @testable import CAMCore
 
 @Suite struct FeedsCalculatorTests {
+    /// A ball cutting shallower than its radius cuts with a smaller circle: the feed goes up by D / Deff, the real chip
+    /// stays on target, and the operation's own check agrees.
+    @Test func shallowBallNoseFeedsFaster() throws {
+        let ball = try #require(ToolLibrary.starter.closest(kind: .ball, diameter: 6))
+        let mdf = Material.named("mdf")
+        var r = FeedsCalculator.Request(tool: ball, material: mdf, machine: .foxalienXEProUltra)
+        r.maxFeed = 50000  // keep the machine cap out of it
+        let full = FeedsCalculator.calculate(r)
+        r.axialDepth = 0.5
+        let shallow = FeedsCalculator.calculate(r)
+        let deff = 2 * (0.5 * 5.5).squareRoot()
+        #expect(abs(shallow.effectiveDiameter - deff) < 1e-9 && full.effectiveDiameter == 6)
+        #expect(abs(shallow.thinning - 6 / deff) < 1e-9)
+        #expect(abs(shallow.feed / full.feed - 6 / deff) < 0.02)
+        #expect(abs(shallow.chipLoad - full.chipLoad) < full.chipLoad * 0.02)
+        // At or below the ball's radius nothing changes; a flat ignores depth.
+        r.axialDepth = 3
+        #expect(FeedsCalculator.calculate(r).feed == full.feed)
+        var f = FeedsCalculator.Request(tool: ToolLibrary.starter.tools[0], material: mdf, machine: .foxalienXEProUltra)
+        let flat0 = FeedsCalculator.calculate(f)
+        f.axialDepth = 0.5
+        #expect(FeedsCalculator.calculate(f) == flat0)
+        // The faster feed doesn't trip the chip-load warning on a parallel finish (about 0.5 mm deep)...
+        var op = Operation(kind: .parallelFinish, tool: ball)
+        op.cutting.rpm = shallow.rpm; op.cutting.feed = shallow.feed
+        #expect(op.typicalAxialDepth == 0.5)
+        let ok = FeedsAndSpeeds.check(tool: ball, data: op.cutting, material: mdf, axialDepth: op.typicalAxialDepth)
+        #expect(!ok.warnings.contains { $0.contains("Chip load") }, "\(ok.warnings)")
+        // ...but would at full depth.
+        let deep = FeedsAndSpeeds.check(tool: ball, data: op.cutting, material: mdf)
+        #expect(deep.warnings.contains { $0.contains("high") })
+        // Thinning never goes past 3×, even scraping the very tip.
+        r.axialDepth = 0.01
+        #expect(FeedsCalculator.calculate(r).thinning <= 3 + 1e-9)
+    }
+
     let flat6 = ToolLibrary.starter.closest(kind: .flat, diameter: 6)!
     let mdf = Material.named("mdf")
 

@@ -477,7 +477,8 @@ struct OperationInspector: View {
                     // Finishing passes and light stepovers cut from the side; everything else includes full-width cuts.
                     let side = op.kind == .parallelFinish || op.kind == .waterlineFinish
                     FeedsCalculatorSheet(tool: op.tool, material: .named(model.job.stock.materialID), destination: "Operation",
-                                         current: op.cutting, machineID: model.job.machineID, slotting: !side) { c in
+                                         current: op.cutting, machineID: model.job.machineID, slotting: !side,
+                                         axialDepth: op.typicalAxialDepth) { c in
                         b(\.cutting).wrappedValue = c
                     }
                 }

@@ -20,10 +20,16 @@ struct FeedsCalculatorSheet: View {
     @State private var autoRPM = true
     @State private var rpm: Double
     @State private var setStepdown = false
+    @State private var shallow: Bool
+    @State private var depth: Double
 
+    /// `axialDepth`: how deep a ball or bull nose cuts below its tip in the operation, if shallower than its corner.
     init(tool: Tool, material: CAMCore.Material, destination: String, current: CuttingData, machineID: String, slotting: Bool,
-         apply: @escaping (CuttingData) -> Void) {
+         axialDepth: Double? = nil, apply: @escaping (CuttingData) -> Void) {
         self.tool = tool; self.material = material; self.destination = destination; self.current = current; self.apply = apply
+        let corner = tool.kind == .ball ? tool.radius : tool.kind == .bullNose ? tool.cornerRadius : 0
+        _shallow = State(initialValue: axialDepth.map { $0 < corner - 1e-6 } ?? false)
+        _depth = State(initialValue: min(max(0.05, axialDepth ?? corner / 2), max(0.05, corner)))
         let m = MachineProfile.find(machineID)
         _machineID = State(initialValue: m.id)
         _maxFeed = State(initialValue: m.maxFeed)
@@ -33,11 +39,15 @@ struct FeedsCalculatorSheet: View {
     }
 
     var machine: MachineProfile { MachineProfile.find(machineID) }
+    /// Height of the rounded part of the cutter (mm); 0 for bits that cut with their full diameter at the tip.
+    var corner: Double { tool.kind == .ball ? tool.radius : tool.kind == .bullNose ? tool.cornerRadius : 0 }
+    var hasCorner: Bool { corner > 0.01 }
 
     var result: FeedsCalculator.Result {
         var r = FeedsCalculator.Request(tool: tool, material: material, maxFeed: maxFeed, minRPM: machine.minRPM, maxRPM: machine.maxRPM)
         r.target = target
         r.engagementPercent = slotting ? 100 : engagement
+        r.axialDepth = hasCorner && shallow ? depth : nil
         r.rpm = autoRPM ? nil : rpm
         return FeedsCalculator.calculate(r)
     }
@@ -82,6 +92,14 @@ struct FeedsCalculatorSheet: View {
                     .pickerStyle(.segmented)
                     if !slotting {
                         NumberField(title: "Width of cut", value: $engagement, unit: "% of Ø", step: 5, range: 1...100, digits: 0)
+                    }
+                    if hasCorner {
+                        Toggle(String(format: "Shallower than the %@ (%g mm)", tool.kind == .ball ? "ball" : "corner radius", corner), isOn: $shallow)
+                        if shallow {
+                            NumberField(title: "Depth of cut", value: $depth, unit: "mm", step: 0.1, range: 0.05...corner)
+                            Text(String(format: "At %g mm deep it cuts with a Ø%.2g mm circle, not Ø%g, so the chip is thinner and the feed goes up to keep it.", depth, res.effectiveDiameter, tool.diameter))
+                                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     Toggle("Fastest spindle speed for this chip load", isOn: $autoRPM)
                     if !autoRPM {

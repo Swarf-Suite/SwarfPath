@@ -58,8 +58,8 @@ The wide trench is in (`cutout` in Operations.swift, `CutoutTrench` in Job.swift
 The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:
 
 - **Check the chip-load table on the FoxAlien.** The ranges come from typical router-bit charts; tune them from real cuts.
-- **Ball nose at shallow depth.** A ball cuts with less than its full diameter near the tip, so its real chip is thinner;
-  the calculator treats it as full diameter.
+- **Shallow ball nose depth is an estimate.** The calculator takes the depth you give it; the operation's chip-load check
+  assumes the stepdown, or 0.5 mm for parallel finishing. The real depth on a parallel pass varies with the roughing left.
 - **Machine Z speed.** Profiles have one max feed; plunge is capped by bit size and at 800 mm/min, not by the machine's Z limit.
 - **Hogging on the machine.** Pockets leave 0.3 mm on walls and 3 mm on floors, and cutouts stop 3 mm above the stock
   bottom (`Operation.applyHogSkins`). Check on the FoxAlien that 3 mm is enough for a careless re-zero and not so much

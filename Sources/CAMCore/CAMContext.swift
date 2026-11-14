@@ -418,7 +418,8 @@ public final class CAMContext: @unchecked Sendable {
         if placed.modelOutsideStock {
             tp.warnings.append("Part of the model lies outside the stock. Check the stock size and the model position.")
         }
-        let advice = FeedsAndSpeeds.check(tool: op.tool, data: op.cutting, material: .named(job.stock.materialID))
+        let advice = FeedsAndSpeeds.check(tool: op.tool, data: op.cutting, material: .named(job.stock.materialID),
+                                          axialDepth: op.typicalAxialDepth)
         tp.warnings.append(contentsOf: advice.warnings)
         if let t = job.activeTestCut, let d = t.depth(for: op.kind) {
             tp.warnings.append(String(format: "Test cut: no deeper than %g mm below the stock top.", d))

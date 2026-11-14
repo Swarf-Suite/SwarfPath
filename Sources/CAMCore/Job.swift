@@ -275,6 +275,17 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
     }
 
     public var stepover: Double { max(0.01, tool.diameter * cutting.stepoverPercent / 100) }
+
+    /// How deep below its tip the bit typically cuts in this operation (mm), for chip thinning on a ball or bull nose:
+    /// the stepdown when cutting in levels, about the roughing skin when finishing a surface. nil = full depth.
+    public var typicalAxialDepth: Double? {
+        guard tool.kind == .ball || tool.kind == .bullNose else { return nil }
+        switch kind {
+        case .parallelFinish: return 0.5
+        case .pocket, .roughing, .waterlineFinish, .facing: return cutting.stepdown
+        default: return nil
+        }
+    }
 }
 
 public struct Region: Codable, Sendable, Identifiable, Equatable {

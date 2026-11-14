@@ -206,8 +206,11 @@ public enum FeedsAndSpeeds {
         public var warnings: [String]
     }
 
-    public static func check(tool: Tool, data: CuttingData, material: Material) -> Advice {
+    /// `axialDepth`: how deep a ball or bull nose cuts below its tip (its chip is thinner when shallow; see
+    /// `FeedsCalculator.axialThinning`). nil = full diameter.
+    public static func check(tool: Tool, data: CuttingData, material: Material, axialDepth: Double? = nil) -> Advice {
         let cl = data.feed / max(1, data.rpm) / Double(max(1, tool.flutes))
+            / FeedsCalculator.axialThinning(tool: tool, axialDepth: axialDepth)
         let win = window(tool: tool, material: material)
         let lo = win.lowerBound, hi = win.upperBound
         var w: [String] = []
