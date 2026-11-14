@@ -52,8 +52,6 @@ The wide trench is in (`cutout` in Operations.swift, `CutoutTrench` in Job.swift
   above it cleared, so the outer pass has to start at the top. Time savings have to come from elsewhere.
 - **Second-pass feed on the machine.** It runs at 1.25× by default (63 → 58 min on a guitar body). Find out how
   far it can really go on the WorkBee.
-- **Outer pass beyond the stock.** With a small stock margin the outer pass cuts air along the edge. It's harmless but
-  wastes time; it could be clipped to the stock.
 
 ## Feeds and speeds
 

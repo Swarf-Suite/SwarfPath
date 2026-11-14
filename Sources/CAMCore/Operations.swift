@@ -901,6 +901,13 @@ extension CAMContext {
                 // the part cuts only part of the cutter's width, so it runs at the trench's faster feed.
                 let ts = loops.map { tabbed($0.0, snap: $0.1) }
                 let innerFeed = op.cutting.feed * op.cutoutTrenchSettings.innerFeedFactor
+                // Outer passes beyond the stock edge (a small stock margin) cut air: those stretches run at the
+                // machine's top feed. A move counts only if the whole cutter stays clear of the stock all along it.
+                let airFeed = max(op.cutting.feed, MachineProfile.find(self.job.machineID).maxFeed)
+                let sz = placed.stockSize
+                func inAir(_ a: V2, _ c: V2) -> Bool {
+                    !Self.segmentHitsRect(a, c, min: V2(-R - 0.01, -R - 0.01), max: V2(sz.x + R + 0.01, sz.y + R + 0.01))
+                }
                 let first = ts[0].path.point(at: ts[0].path.param(nearest: b.pos.xy))
                 b.travel(to: V3(first, zTop), approachZ: zTop + 1)
                 var cleared = zTop
@@ -916,12 +923,14 @@ extension CAMContext {
                         if over > h { b.cut(V3(p0, h)) }
                         let dz = h - z
                         let rampLen = min(t.P, max(0, dz) / tan(ramp))
+                        let outerPass = k < ts.count - 1
+                        func feed(to p: V2) -> Double? { outerPass && airFeed > op.cutting.feed && inAir(b.pos.xy, p) ? airFeed : f }
                         for (s, p) in t.path.samples(from: s0, to: s0 + rampLen, breaks: t.breaks).dropFirst() {
                             let zr = h - dz * min(1, (s - s0) / max(rampLen, 1e-9))
-                            b.cut(V3(p, max(zr, t.tabZ(s))), feed: f)
+                            b.cut(V3(p, max(zr, t.tabZ(s))), feed: feed(to: p))
                         }
                         for (s, p) in t.path.samples(from: s0 + rampLen, to: s0 + rampLen + t.P, breaks: t.breaks).dropFirst() {
-                            b.cut(V3(p, max(z, t.tabZ(s))), feed: f)
+                            b.cut(V3(p, max(z, t.tabZ(s))), feed: feed(to: p))
                         }
                     }
                     cleared = z
@@ -939,6 +948,22 @@ extension CAMContext {
                                : "\(noRoom) outlines have no room for the trench (small holes, or too near the stock edge); they are cut as plain slots.")
         }
         return tp
+    }
+
+    /// True when the segment a–c touches the rectangle [min, max] (Liang–Barsky clipping).
+    static func segmentHitsRect(_ a: V2, _ c: V2, min lo: V2, max hi: V2) -> Bool {
+        var t0 = 0.0, t1 = 1.0
+        let d = c - a
+        for (p, q) in [(-d.x, a.x - lo.x), (d.x, hi.x - a.x), (-d.y, a.y - lo.y), (d.y, hi.y - a.y)] {
+            if abs(p) < 1e-12 {
+                if q < 0 { return false }
+            } else {
+                let r = q / p
+                if p < 0 { t0 = Swift.max(t0, r) } else { t1 = Swift.min(t1, r) }
+                if t0 > t1 { return false }
+            }
+        }
+        return true
     }
 
     /// Lowest Z a cutout cuts to: through the stock by `throughDepth`, unless a depth limit or the Z stock to leave

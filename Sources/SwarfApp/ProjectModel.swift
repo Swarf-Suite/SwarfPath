@@ -791,6 +791,8 @@ final class ProjectModel: ObservableObject {
         var o = op
         o.name = ""
         var own = String(decoding: (try? enc.encode(o)) ?? Data(), as: UTF8.self) + contextKey
+        // Trench passes beyond the stock run at the machine's top feed.
+        if op.kind == .cutout { own += "#m" + job.machineID }
         // A rest pass that follows an earlier operation depends on that operation's settings and position too.
         if let id = op.restFromOp {
             let i = job.operations.firstIndex { $0.id == id }

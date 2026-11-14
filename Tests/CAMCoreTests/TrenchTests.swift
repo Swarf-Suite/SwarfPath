@@ -28,6 +28,39 @@ import Testing
         return (sim, sim.analyze(model: ctx.placed, tolerance: 0.1))
     }
 
+    /// With a small stock margin the outer pass runs partly beyond the stock: those stretches cut nothing and run at the
+    /// machine's top feed; everything that touches the stock keeps the cutting feed.
+    @Test func outerPassBeyondTheStockRunsFast() throws {
+        let op = trenchOp(tabs: false)
+        var job = Job()
+        job.quality = .draft
+        job.stock.marginXY = 2  // outer pass centre 6.5 mm from the part: its cutter is clear of the stock
+        job.machineID = MachineProfile.foxalienXEProUltra.id
+        job.operations = [op]
+        let ctx = CAMContext(raw: STL.box(V3(60, 40, 18)), job: job)
+        let tp = try ctx.generate(op)
+        let maxFeed = MachineProfile.foxalienXEProUltra.maxFeed
+        let sz = ctx.placed.stockSize, R = op.tool.radius
+        var prev = tp.start, fast = 0
+        for m in tp.moves {
+            defer { prev = m.to }
+            guard m.kind == .feed, m.feed >= maxFeed - 1e-6 else { continue }
+            fast += 1
+            for k in 0...10 {
+                let p = prev.xy + (m.to.xy - prev.xy) * (Double(k) / 10)
+                let clear = p.x < -R || p.y < -R || p.x > sz.x + R || p.y > sz.y + R
+                #expect(clear, "fast move at \(p) touches the stock")
+            }
+        }
+        #expect(fast > 10)
+        // Same cut as at the cutting feed, in less time.
+        var tpSlow = tp
+        tpSlow.moves = tp.moves.map { var m = $0; if m.feed >= maxFeed - 1e-6 { m.feed = op.cutting.feed }; return m }
+        let (_, a) = simulate(tp, ctx)
+        #expect(a.gougeCells == 0)
+        #expect(tp.stats(rapidRate: 6000, acceleration: 500).seconds < tpSlow.stats(rapidRate: 6000, acceleration: 500).seconds)
+    }
+
     /// The roughing slot is 1.5 × the cutter wide, cut all the way through; beyond it the stock is untouched.
     @Test func trenchWidensTheSlot() throws {
         let op = trenchOp(tabs: false)
