@@ -34,7 +34,8 @@ extension CAMContext {
     }
 
     /// Region to engrave on the context grid (1 = engrave, 0 = leave).
-    public func vcarveMask(_ op: Operation) -> Grid2D {
+    /// `includeModel: false` leaves out the recess test, giving only the other limits (stock, keep-outs, machine-only).
+    public func vcarveMask(_ op: Operation, includeModel: Bool = true) -> Grid2D {
         let g = heights
         let W = g.width, H = g.height
         let top = Float(vcarveTopZ(op))
@@ -51,7 +52,7 @@ extension CAMContext {
                 guard p.x >= 0, p.y >= 0, p.x <= s.x, p.y <= s.y else { continue }
                 let h = g.data[i]
                 guard h > Grid2D.none / 2 else { continue }
-                if source == .recesses && h >= top - 0.02 { continue }
+                if includeModel && source == .recesses && h >= top - 0.02 { continue }
                 if keepOuts.contains(where: { $0.contains(p, inflate: g.res) }) { continue }
                 if !only.isEmpty && !only.contains(where: { $0.contains(p) }) { continue }
                 m[i] = 1
@@ -89,6 +90,33 @@ extension CAMContext {
             return v > Grid2D.forbidThreshold || v < 0 ? 0 : Double(v)
         }
         func depth(_ d: Double) -> Double { min(limit, max(0, d - tipR) / tanHalf) }
+        // Engraving recesses: the outline is where the top face ends, so the exact distance to it comes from the model
+        // (the top face's footprint), not the grid. That puts the cone's edge on the true outline instead of up to a
+        // cell inside it. The other limits (stock edge, keep-outs, machine-only) are still grid masks: their distance
+        // is taken without the model and shrunk by the worst cell error, so it never lets the cone past them.
+        let topFace: Footprint? = settings.source == .recesses ? Footprint(mesh: placed.mesh, minZ: topZ - 0.02) : nil
+        let limitDist: Grid2D? = topFace.map { _ in
+            let lm = vcarveMask(op, includeModel: false).data.map { $0 > 0.5 }
+            let d = DistanceTransform.distance(width: W, height: H, res: res) { !lm[$0] }
+            let s = Float(res * 0.75)
+            return Grid2D(like: maskGrid, data: zip(d, lm).map { d, inside in inside ? max(0, d - s) : 0 })
+        }
+        let rawGrid = Grid2D(like: maskGrid, data: raw)
+        func gridDist(_ p: V2) -> Double {
+            let v = rawGrid.sample(p)
+            return v > Grid2D.forbidThreshold || v < 0 ? 0 : Double(v)
+        }
+        func limitAt(_ p: V2) -> Double {
+            guard let limitDist else { return .infinity }
+            let l = limitDist.sample(p)
+            return l > Grid2D.forbidThreshold || l < 0 ? 0 : Double(l)
+        }
+        func exactDist(_ p: V2) -> Double {
+            guard let topFace else { return distAt(p) }
+            let lim = limitAt(p), reach = gridDist(p) + 2 * res
+            if let e = topFace.nearest(p, within: min(lim, reach))?.dist { return min(e, lim) }
+            return lim <= reach ? lim : distAt(p)
+        }
         progress?(0.1)
         try Task.checkCancellation()
 
@@ -184,7 +212,7 @@ extension CAMContext {
 
         var paths: [VPath] = []
         for (pts, closed) in raw2D {
-            var p3 = pts.map { V3($0, topZ - depth(distAt($0))) }
+            var p3 = pts.map { V3($0, topZ - depth(exactDist($0))) }
             if closed, let f = p3.first { p3.append(f) }
             p3 = Polyline.simplify(p3, tolerance: 0.01)
             if p3.count == 1 || (p3.count == 2 && simd_distance(p3[0], p3[1]) < 1e-6) {
@@ -205,9 +233,12 @@ extension CAMContext {
                 var levels: [Float] = []
                 var r = rLim
                 while r < maxD { levels.append(Float(r)); r += so }
-                for ls in Contours.isolines(dist, levels: levels) {
+                for (k, ls) in Contours.isolines(dist, levels: levels).enumerated() {
+                    let level = Double(levels[k])
                     for l in ls where l.perimeter > res * 3 {
-                        flatLoops.append(Polyline.simplify(loop: l, tolerance: min(0.01, res * 0.1)))
+                        // On the exact offset of the outline (see `exactDist`), where the grid allows it.
+                        let e = topFace?.refine(l, level: level, maxShift: 2 * res) { limitAt($0) >= level - 1e-6 } ?? l
+                        flatLoops.append(Polyline.simplify(loop: e, tolerance: min(0.01, res * 0.1)))
                     }
                 }
             }

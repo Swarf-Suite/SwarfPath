@@ -21,18 +21,14 @@ Two-sided (flip) machining is in: dowel holes, side A, a roll about X, then side
 
 ## Accuracy
 
-- **Exact walls for the remaining operations.** Cutout outlines, every pass of flat-end-mill pockets and
-  drill-hole centres are moved onto the true model geometry with `Footprint` (Silhouette.swift); pocket passes
-  limited by keep-outs, silhouette holes or the side-B frame are straightened (`straightenGridRuns`). Everything else
-  still follows grid contours. Walls can be a few tenths of a mm off, and curved passes wobble from segment to segment
-  (jerky motion on the machine):
-  - pockets cut with a ball or V-bit tool
-  - roughing (3D clearing)
-  - waterline
-  - V-carve outlines
-
-  Each needs a test like `OperationTests.pocketWallsAreExactAtEveryDepth`: wall distance exact at every depth,
-  zero gouges.
+- **Exact walls on sloped material.** Pockets, 3D roughing and waterline put every wall pass on the exact offset with
+  `ToolFootprint` (Silhouette.swift), which splits a ball, bull-nose or V-bit into height bands. That is exact where
+  the cutter meets a vertical wall with its full width; against sloped material it keeps the grid contour of the exact
+  cutter dilation (about a cell). A true contact-height solve (the cutter profile against each triangle) would close
+  that gap.
+- **V-carve path off the centre line.** V-carve depths on recesses are exact for where the path runs, but the medial
+  axis comes from the grid, so in a narrow slot the path can sit a fraction of a cell off centre and the carve ends up
+  that much shallower than ideal (about 0.1 mm on a 10 mm slot with a 60° bit).
 
 ## Rest machining
 
@@ -71,6 +67,18 @@ The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:
 
 ## App
 
+- **Tooltips on key settings.** Hover help on the inspector's and tool library's main parameters (stepover, stepdown,
+  stock to leave, boundary, chip load, tabs, trench and so on): what each value does and a sensible range.
+- **Machine control: a built-in G-code sender with a web UI.** A modern sender in the spirit of Universal G-code
+  Sender, served by Swarf's own web server so any browser on the local network (e.g. a MacBook in the garage) can drive
+  the machine. The Mac running Swarf talks to the FoxAlien (GRBL) over its USB serial port. Needs:
+  - serial link to GRBL (USB CDC/CH340 driver, 115200 baud), streaming with character-counting flow control, status
+    polling (`?`), feed hold / resume / soft reset, alarms and unlock;
+  - jog, homing, set work zero (X/Y/Z, probe), spindle and feed/spindle overrides;
+  - load the files Swarf exported (one per tool) and run them in order, with a tool-change pause between them;
+  - live position, progress, and a toolpath preview in the browser;
+  - LAN access with some protection (a pairing code or password; only one controlling client at a time), since
+    anything that can reach the page can move the machine.
 - **Check that the export file name is remembered.** Typing a name and the live rename were checked in the
   app. Saving the name with the project and reopening it were not.
 - **Check `M3 P0` / `M5 P0` and rapids on the WorkBee.** Run an exported file on the machine and confirm two

@@ -60,6 +60,10 @@ Three targets share one engine:
    cutout outlines, every pass of flat-end-mill pockets (the wall pass at the tool radius, inner passes at radius +
    k × stepover), and hole centres and diameters in Drill.swift. Without it, curves come out as thousands of tiny
    segments whose direction wobbles, and the machine brakes and accelerates at every one.
+   For non-flat cutters `ToolFootprint` (Silhouette.swift) does the same job: the cutter is split into height bands
+   (material above tip + δk must stay `cuttingRadius(δk+1)` away), which is conservative and exact on vertical walls,
+   so `refine` only moves a point when the full-radius band binds. Pockets, roughing and waterline use it; V-carve
+   takes recess depths from the top face's `Footprint`.
    `refine` caps each move at two cells and takes an `accept` check (keep-outs, boundary). Anything new that
    produces finished walls should use it too, or parts come out a few tenths undersize. `minZ` clips triangles
    at that height, so sloped and filleted walls give the true cross-section.

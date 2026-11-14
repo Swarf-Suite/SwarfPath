@@ -138,6 +138,9 @@ public struct Tool: Codable, Sendable, Identifiable, Equatable, Hashable {
             return min(radius, tipDiameter / 2 + depth * tan(half))
         case .ball:
             return depth >= radius ? radius : (max(0, depth * (2 * radius - depth))).squareRoot()
+        case .bullNose:
+            let cr = min(max(0, cornerRadius), radius)
+            return depth >= cr ? radius : radius - cr + (max(0, depth * (2 * cr - depth))).squareRoot()
         default:
             return radius
         }

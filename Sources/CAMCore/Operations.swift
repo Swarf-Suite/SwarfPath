@@ -147,14 +147,14 @@ extension CAMContext {
         var b = builder(op)
         let floor = floorZ(op) + op.stockToLeaveZ
         let sd = max(0.05, op.cutting.stepdown)
-        // Pockets with a flat end mill put the wall pass on the exact model wall (see below). That pass can sit up to
-        // two cells further out than the grid says, so keep the next pass close enough to leave no ridge.
-        let exactWalls = op.kind == .pocket && op.tool.kind == .flat
+        // Pockets and 3D roughing put the wall pass on the exact model wall (see below), for any cutter shape. That pass
+        // can sit up to two cells further out than the grid says, so keep the next pass close enough to leave no ridge.
+        let exactWalls = (op.kind == .pocket || op.kind == .roughing) && op.tool.kind != .drill
         let so = min(op.stepover, op.tool.diameter * 0.95 - (exactWalls ? 2 * T0.res : 0))
         let wallOffset = op.tool.radius + op.stockToLeaveXY
         // Rest machining: only positions whose cutter touches material a larger tool left (see `RestField`).
         let rest = restField(op)
-        var footprints: [Double: Footprint] = [:]
+        var footprints: [Double: ToolFootprint] = [:]
         func wallAllowed(_ p: V2, _ z: Double) -> Bool {
             if isForbiddenXY(p, z: z, op: op, inflate: op.tool.radius) { return false }
             let s = placed.stockSize, R = op.tool.radius
@@ -284,17 +284,17 @@ extension CAMContext {
             // Offsets: k=0 from the exact tool field, k>=1 from the distance field.
             var loopsByK: [(Int, Loop)] = []
             // The grid puts the wall pass up to a cell or so short of the wall, and by an amount that changes with depth
-            // (the contour is interpolated across the wall's full height). For a flat end mill the exact limit is
-            // simple: stay `wallOffset` from all material that stands above this level.
-            let fp: Footprint? = exactWalls ? {
+            // (the contour is interpolated across the wall's full height). The exact limit: the cutter's clearance from
+            // the material standing above this level (`ToolFootprint`; for a flat end mill, `wallOffset` from it).
+            let fp: ToolFootprint? = exactWalls ? {
                 if let f = footprints[z] { return f }
-                let f = Footprint(mesh: placed.mesh, minZ: z + 0.01)
+                let f = ToolFootprint(mesh: placed.mesh, tool: op.tool, tipZ: z, leaveXY: op.stockToLeaveXY, leaveZ: op.stockToLeaveZ)
                 footprints[z] = f
                 return f
             }() : nil
             for l in Contours.isolines(negT, levels: [-zf])[0] {
-                let wall = fp?.refine(l, level: wallOffset, maxShift: 2 * T.res) { wallAllowed($0, z) } ?? l
-                loopsByK.append((0, straightenGridRuns(wall, exactAt: wallOffset, footprint: fp, field: T, isWall: true, safe: safe)))
+                let wall = fp?.refine(l, extra: 0, maxShift: 2 * T.res) { wallAllowed($0, z) } ?? l
+                loopsByK.append((0, straightenGridRuns(wall, exactAt: 0, footprint: fp, field: T, isWall: true, safe: safe)))
             }
             var offs: [Float] = []
             var k = 1
@@ -307,8 +307,8 @@ extension CAMContext {
                         // (the same problem the cutout had). Where the nearest constraint is the model wall, the loop is
                         // an exact offset of it: put it there. Points limited by something else (a boundary, a keep-out)
                         // are too far from that offset and keep their grid position.
-                        let exact = fp?.refine(l, level: wallOffset + Double(offs[ki]), maxShift: 2 * T.res) { wallAllowed($0, z) && T.sample($0) <= zf } ?? l
-                        loopsByK.append((ki + 1, straightenGridRuns(exact, exactAt: wallOffset + Double(offs[ki]), footprint: fp, field: T, isWall: false, safe: safe)))
+                        let exact = fp?.refine(l, extra: Double(offs[ki]), maxShift: 2 * T.res) { wallAllowed($0, z) && T.sample($0) <= zf } ?? l
+                        loopsByK.append((ki + 1, straightenGridRuns(exact, exactAt: Double(offs[ki]), footprint: fp, field: T, isWall: false, safe: safe)))
                     }
                 }
             }
@@ -353,7 +353,7 @@ extension CAMContext {
                         if D.nearest(p) > 0 && T.sample(p) <= zf { return true }
                         // Near an exact wall pass the grid is too cautious; ask the model itself.
                         guard let fp else { return false }
-                        let clear = (fp.nearest(p, within: wallOffset)?.dist ?? .infinity) >= wallOffset - 1e-6
+                        let clear = fp.margin(p, extra: 0) >= -1e-6
                         return clear && wallAllowed(p, z)
                     }, enter: nil)
                 }
@@ -437,7 +437,7 @@ extension CAMContext {
                     if T0.sample(p) <= zf { return true }
                     // Near an exact wall pass the grid is too cautious; ask the model itself.
                     guard let fp else { return false }
-                    let clear = (fp.nearest(p, within: wallOffset)?.dist ?? .infinity) >= wallOffset - 1e-6
+                    let clear = fp.margin(p, extra: 0) >= -1e-6
                     return clear && wallAllowed(p, a.z)
                 }, enter: last == nil ? nil : enter)
                 last = pick
@@ -463,20 +463,17 @@ extension CAMContext {
     /// On the wall pass (`isWall`) only points next to a forbidden cell are straightened; the rest are on model walls
     /// and stay put. A chord there can reach up to 0.75 cells past the grid's contour, into a margin that is always
     /// spare: keep-outs are already inflated by a cell, and the silhouette, stock and side-B frame limits are waste or
-    /// have their own margin. Points already on the exact offset (`exactAt` mm from `footprint`) are always kept.
+    /// have their own margin. Points already on the exact offset (`exactAt` mm beyond the cutter clearance `footprint` gives) are always kept.
     ///
     /// `safe`, when given, must approve every point a straightened pass passes through (rest machining, where the edge
     /// of the allowed area is the edge of the leftover, not a margin).
-    func straightenGridRuns(_ loop: Loop, exactAt level: Double, footprint fp: Footprint?, field T: Grid2D, isWall: Bool,
+    func straightenGridRuns(_ loop: Loop, exactAt level: Double, footprint fp: ToolFootprint?, field T: Grid2D, isWall: Bool,
                             safe: ((V2) -> Bool)? = nil) -> Loop {
         let src = loop.points
         let n = src.count
         guard n >= 5 else { return loop }
         let tol = T.res * 0.5
-        func exact(_ p: V2) -> Bool {
-            guard let fp, let d = fp.nearest(p, within: level + 1)?.dist else { return false }
-            return abs(d - level) < 1e-3
-        }
+        func exact(_ p: V2) -> Bool { fp?.isExact(p, extra: level) ?? false }
         func nearForbidden(_ p: V2) -> Bool {
             let c = T.cellCoord(p)
             let x0 = Int(c.x.rounded()), y0 = Int(c.y.rounded())
@@ -641,6 +638,9 @@ extension CAMContext {
             try Task.checkCancellation()
             let z = levels[li]
             var runs: [[V3]] = []
+            // The grid contour wobbles by up to a cell (more on a conservative field); put it on the exact contact line,
+            // where the cutter just touches the material above this level.
+            let fp = ToolFootprint(mesh: placed.mesh, tool: op.tool, tipZ: z, leaveXY: op.stockToLeaveXY, leaveZ: op.stockToLeaveZ)
             for l0 in loops {
                 let l = Polyline.simplify(loop: l0, tolerance: 0.005)
                 var lp = l.points
@@ -665,7 +665,29 @@ extension CAMContext {
                 }
                 if !cur.isEmpty { runs.append(cur) }
             }
-            runs = runs.filter { Polyline.length($0) > 1 }
+            runs = runs.filter { Polyline.length($0) > 1 }.map { run in
+                // Points the grid filter kept, moved onto the exact contact line. Simplifying merged straight grid runs
+                // into long segments, so put points back at cell spacing first; each is then moved on its own.
+                var pts: [V2] = [run[0].xy]
+                for k in 1..<run.count {
+                    let a = run[k - 1].xy, c = run[k].xy
+                    let n = max(1, Int((simd_distance(a, c) / T.res).rounded(.up)))
+                    for j in 1...n { pts.append(a + (c - a) * (Double(j) / Double(n))) }
+                }
+                let ex = pts.map { p in
+                    fp.refinePoint(p, extra: 0, maxShift: 2 * T.res) { q in
+                        T.sample(q) < Grid2D.forbidThreshold
+                            && (regions(for: op).isEmpty || !isForbiddenXY(q, z: z, op: op, inflate: op.tool.radius))
+                    }
+                }
+                let moved = zip(pts, ex).map { $0 != $1 }
+                guard moved.contains(true) else { return run }
+                let closed = run.count > 2 && run[0] == run[run.count - 1]
+                var kept = ToolFootprint.dropFoldBacks(closed ? Array(ex.dropLast()) : ex,
+                                                       moved: closed ? Array(moved.dropLast()) : moved, closed: closed)
+                if closed, let f = kept.first { kept.append(f) }
+                return Polyline.simplify(kept.map { V3($0, z) }, tolerance: 0.005)
+            }
             while !runs.isEmpty {
                 let here = b.pos
                 let i = runs.indices.min { simd_distance_squared(runs[$0][0], here) < simd_distance_squared(runs[$1][0], here) }!

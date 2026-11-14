@@ -142,3 +142,122 @@ struct Footprint: Sendable {
         return a + ab * max(0, min(1, simd_dot(p - a, ab) / l2))
     }
 }
+
+/// Exact XY clearance for a cutter of any shape at one tip height.
+///
+/// A flat end mill at tip height z must stay its radius away from all material standing above z. A ball, bull nose or
+/// V-bit is narrower near its tip, so it may come closer to material that is only a little above z. The cutter is
+/// split into height bands: for the band from δ_k to δ_k+1 above the tip, the material above z + δ_k must stay at
+/// least the cutter's radius at δ_k+1 away (its widest in that band). That bound can only err away from the part, so a
+/// point that satisfies every band is gouge-free; for vertical walls it is exact. A shank wider than the cutter adds
+/// one more band from the top of the flutes.
+struct ToolFootprint: Sendable {
+    /// `full`: the band where the cutter has its full radius (or the shank). Only there is a touching band exact; a
+    /// lower band touching means sloped material, where it is merely conservative.
+    let slices: [(fp: Footprint, r: Double, full: Bool)]
+
+    /// `leaveXY` widens the cutter, `leaveZ` raises the material (stock to leave).
+    init(mesh: Mesh, tool: Tool, tipZ z: Double, leaveXY: Double, leaveZ: Double, bands: Int = 6) {
+        var out: [(Footprint, Double, Bool)] = []
+        let R = tool.radius
+        // Height above the tip where the cutter reaches its full radius.
+        let full = tool.profileOffset(at: R) ?? 0
+        // The lowest band starts just above the tip so a floor at tip height doesn't count; higher bands start just
+        // below their nominal height (taking in slightly more material is always safe), so a wall whose top is exactly
+        // at a band boundary still meets the band that touches it with its full width.
+        let lift = 0.01 - leaveZ, under = -0.01 - leaveZ
+        if full <= 1e-6 {
+            out.append((Footprint(mesh: mesh, minZ: z + lift), R + leaveXY, true))
+        } else {
+            let n = max(1, bands)
+            for k in 0..<n {
+                let lo = full * Double(k) / Double(n), hi = full * Double(k + 1) / Double(n)
+                out.append((Footprint(mesh: mesh, minZ: z + lo + (k == 0 ? lift : under)), tool.cuttingRadius(depth: hi) + leaveXY, false))
+            }
+            out.append((Footprint(mesh: mesh, minZ: z + full + under), R + leaveXY, true))
+        }
+        if tool.hasWideShank {
+            out.append((Footprint(mesh: mesh, minZ: z + tool.fluteLength + under), tool.shankDiameter / 2 + leaveXY, true))
+        }
+        slices = out
+    }
+
+    var reach: Double { slices.map(\.r).max() ?? 0 }
+
+    /// Clearance of a cutter centred at `p`, widened by `extra`: the smallest (distance − required radius) over all
+    /// bands. Negative means it would cut the part. Capped at `cap` when nothing is within reach.
+    func margin(_ p: V2, extra: Double, cap: Double = 1) -> Double {
+        var m = cap
+        for s in slices {
+            let need = s.r + extra
+            if let d = s.fp.nearest(p, within: need + cap)?.dist { m = min(m, d - need) }
+        }
+        return m
+    }
+
+    /// True when `p` is on the exact offset (within 1 µm), i.e. a band touches and none is violated.
+    func isExact(_ p: V2, extra: Double) -> Bool { abs(margin(p, extra: extra)) < 1e-3 }
+
+    /// One point moved onto the exact offset curve (clearance 0 at `extra`), or `p0` itself if it would move further
+    /// than `maxShift`, end up violating a band, land where `accept` rejects, or is held by a partial band (sloped
+    /// material: the grid contour of the exact cutter dilation is closer there).
+    func refinePoint(_ p0: V2, extra: Double, maxShift: Double, accept: (V2) -> Bool = { _ in true }) -> V2 {
+        var p = p0
+        var ok = false, held = false
+        for _ in 0..<8 {
+            // The band that binds here: smallest clearance.
+            var best = Double.infinity, bestQ: V2? = nil, bestNeed = 0.0, bestD = 0.0, bestFull = false
+            for s in slices {
+                let need = s.r + extra
+                guard let (d, q) = s.fp.nearest(p, within: need + 2 * maxShift) else { continue }
+                // Ties go to the full band: on a vertical wall every band sees the same distance.
+                if d - need < best - 1e-7 || (s.full && d - need < best + 1e-7) {
+                    best = d - need; bestQ = q; bestNeed = need; bestD = d; bestFull = s.full
+                }
+            }
+            guard let q = bestQ, bestD > 1e-9 else { break }
+            guard bestFull else { held = true; break }
+            if abs(best) < 1e-5 { ok = true; break }
+            p = q + (p - q) * (bestNeed / bestD)
+        }
+        if !ok && !held { ok = margin(p, extra: extra) >= -1e-4 }
+        if !ok || simd_distance(p, p0) > maxShift || (p != p0 && !accept(p)) { return p0 }
+        return p
+    }
+
+    /// Drops moved points that reverse direction: near a sharp inside corner they can land on either side of it.
+    /// The grid's own points stay, so callers that filter point by point see the same contour.
+    static func dropFoldBacks(_ pts: [V2], moved: [Bool], closed: Bool) -> [V2] {
+        var out = pts, moved = moved
+        var changed = true
+        while changed && out.count > 4 {
+            changed = false
+            var kept: [V2] = [], keptMoved: [Bool] = []
+            kept.reserveCapacity(out.count)
+            let n = out.count
+            for i in 0..<n {
+                guard closed || (i > 0 && i < n - 1) else { kept.append(out[i]); keptMoved.append(moved[i]); continue }
+                let prev = kept.last ?? out[(i + n - 1) % n], next = out[(i + 1) % n], p = out[i]
+                if moved[i] && simd_dot(p - prev, next - p) < 0 { changed = true; continue }
+                kept.append(p); keptMoved.append(moved[i])
+            }
+            out = kept; moved = keptMoved
+        }
+        return out
+    }
+
+    /// `refinePoint` over a closed contour.
+    func refine(_ loop: Loop, extra: Double, maxShift: Double, accept: (V2) -> Bool = { _ in true }) -> Loop {
+        var out: [V2] = [], moved: [Bool] = []
+        out.reserveCapacity(loop.points.count)
+        for p0 in loop.points {
+            let p = refinePoint(p0, extra: extra, maxShift: maxShift, accept: accept)
+            if p != p0, let last = out.last, simd_distance(last, p) < 1e-4 { continue }
+            out.append(p)
+            moved.append(p != p0)
+        }
+        guard moved.contains(true) else { return loop }
+        out = Self.dropFoldBacks(out, moved: moved, closed: true)
+        return out.count >= 3 ? Loop(out) : loop
+    }
+}
