@@ -36,7 +36,9 @@ struct SidebarView: View {
                         HStack {
                             Text(r.name).strikethrough(!r.enabled)
                             Spacer()
-                            Text(r.kind == .keepOut ? "keep-out" : "only").font(.caption2).foregroundStyle(.secondary)
+                            Text((r.kind == .keepOut ? "keep-out" : "only")
+                                 + (model.job.activeFlip != nil && r.appliesTo != .both ? (r.appliesTo == .a ? " · A" : " · B") : ""))
+                                .font(.caption2).foregroundStyle(.secondary)
                         }
                     } icon: {
                         Image(systemName: r.kind == .keepOut ? "nosign" : "square.dashed").foregroundStyle(r.kind == .keepOut ? .red : .green)

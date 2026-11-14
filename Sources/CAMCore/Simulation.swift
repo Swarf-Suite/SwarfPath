@@ -199,7 +199,7 @@ public struct StockSimulator: Sendable {
             let R = tp.tool.radius
             let stockTop = below ? nil : stockTop
             let pts = tp.tessellated(maxSegment: 0.5)
-            for reg in keepOuts {
+            for reg in keepOuts where reg.applies(to: path.side) {
                 var worst: (V3, Double)? = nil
                 for i in 1..<max(1, pts.count) where pts[i].1 != .rapid {
                     // check densely along the segment

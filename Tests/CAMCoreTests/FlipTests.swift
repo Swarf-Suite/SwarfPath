@@ -189,6 +189,44 @@ import simd
         #expect(abs(Double(sim.stock.nearest(V2(mb.min.x + 24, mb.min.y + 20))) - (mb.max.z - 5)) < 0.1)
     }
 
+    /// Clamps move after the flip: a keep-out can apply to one side only.
+    @Test func keepOutsCanApplyToOneSide() throws {
+        let all = ops()
+        let plain = context(all)
+        let mb = plain.placed.modelBounds
+        let topA = try plain.generate(all[1]), backA = try plain.generate(all[3])
+        // Over the left half of the back cavity (drawn on the side-A view), and over the whole top pocket.
+        var overCavity = Region(name: "clamp B", min: V2(mb.min.x + 45, mb.min.y + 10), max: V2(mb.min.x + 58, mb.min.y + 30))
+        overCavity.appliesTo = .b
+        var overPocket = Region(name: "clamp A", min: V2(mb.min.x + 10, mb.min.y + 10), max: V2(mb.min.x + 38, mb.min.y + 30))
+        overPocket.appliesTo = .b
+        var j = job()
+        j.regions = [overCavity, overPocket]
+        let ctx = context(all, job: j)
+        // Side A ignores both (B only): the top pocket is unchanged.
+        #expect(try ctx.generate(all[1]).moves == topA.moves)
+        // Side B keeps out of the clamp: fewer cuts, none inside it, nothing gouged.
+        let back = try ctx.generate(all[3])
+        #expect(back.moves.count < backA.moves.count || back.moves != backA.moves)
+        #expect(StockSimulator.keepOutViolations([back], regions: j.regions, stockSize: ctx.placed.stockSize).isEmpty)
+        var sim = StockSimulator(stockSize: ctx.placed.stockSize, resolution: 0.25)
+        sim.run([back])
+        #expect(sim.analyze(model: ctx.placed, tolerance: 0.1).gougeCells == 0)
+        // The same region for side A only leaves side B alone, and its toolpaths aren't flagged against it.
+        j.regions[0].appliesTo = .a
+        let ctxA = context(all, job: j)
+        #expect(try ctxA.generate(all[3]).moves == backA.moves)
+        #expect(StockSimulator.keepOutViolations([backA], regions: [j.regions[0]], stockSize: ctx.placed.stockSize).isEmpty)
+        // ...whereas for both sides it is flagged.
+        j.regions[0].appliesTo = .both
+        #expect(!StockSimulator.keepOutViolations([backA], regions: [j.regions[0]], stockSize: ctx.placed.stockSize).isEmpty)
+        // Projects saved before it existed still open, applying to both sides.
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Region(name: "r", min: .zero, max: V2(1, 1)))) as! [String: Any]
+        json.removeValue(forKey: "sides")
+        let old = try JSONDecoder().decode(Region.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(old.sides == nil && old.appliesTo == .both)
+    }
+
     @Test func sideBLeavesTheTabsAndFrame() throws {
         var all = ops()
         // 3D roughing on the back ranges around the part, right where the tabs are.

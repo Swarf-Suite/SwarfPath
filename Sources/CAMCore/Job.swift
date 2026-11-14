@@ -288,6 +288,17 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
     }
 }
 
+public enum RegionSides: String, Codable, Sendable, CaseIterable {
+    case both, a, b
+    public var displayName: String {
+        switch self {
+        case .both: return "Both sides"
+        case .a: return "Side A only"
+        case .b: return "Side B only"
+        }
+    }
+}
+
 public struct Region: Codable, Sendable, Identifiable, Equatable {
     public enum Kind: String, Codable, Sendable, CaseIterable {
         case keepOut, machineOnly
@@ -301,6 +312,20 @@ public struct Region: Codable, Sendable, Identifiable, Equatable {
     public var max: V2
     /// Keep-out only: the tool tip may not go below this Z (stock space) inside the region. nil = never enter.
     public var protectBelowZ: Double? = nil
+    /// Two-sided jobs: which side's operations it applies to (clamps move after the flip). nil = both, as older
+    /// projects had it.
+    public var sides: RegionSides? = nil
+    public var appliesTo: RegionSides {
+        get { sides ?? .both }
+        set { sides = newValue == .both ? nil : newValue }
+    }
+    public func applies(to side: MachiningSide) -> Bool {
+        switch appliesTo {
+        case .both: return true
+        case .a: return side == .a
+        case .b: return side == .b
+        }
+    }
 
     public init(name: String, kind: Kind = .keepOut, min: V2, max: V2) {
         self.name = name; self.kind = kind

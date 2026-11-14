@@ -140,7 +140,8 @@ extension CAMContext {
     /// (default: the job's own side-A cutouts).
     public func makeSideB(cutouts: [Operation]? = nil) -> CAMContext {
         // Regions are drawn on the side-A view. Mirror them onto the back; a keep-out that only protected material
-        // below a height on side A protects the whole column on side B.
+        // below a height on side A protects the whole column on side B. Side-A-only regions are dropped by
+        // `regions(for:)`, which filters by this context's side.
         var j = job
         let W = placed.stockSize.y
         j.regions = job.regions.map { r in

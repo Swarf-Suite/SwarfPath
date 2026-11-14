@@ -188,7 +188,7 @@ public final class CAMContext: @unchecked Sendable {
     // MARK: Regions
 
     func regions(for op: Operation) -> [Region] {
-        job.regions.filter { r in r.enabled && (op.regionIDs == nil || op.regionIDs!.contains(r.id)) }
+        job.regions.filter { r in r.enabled && r.applies(to: side) && (op.regionIDs == nil || op.regionIDs!.contains(r.id)) }
     }
 
     func isForbiddenXY(_ p: V2, z: Double, op: Operation, inflate: Double) -> Bool {

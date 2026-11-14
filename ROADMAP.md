@@ -12,8 +12,9 @@ Two-sided (flip) machining is in: dowel holes, side A, a roll about X, then side
   - Re-probing Z on the new top is enough.
 
   The tests prove the geometry, but not the clamping or the real-world registration.
-- **Clamps on side B.** Side B never cuts the frame, but it doesn't know where the clamps are. Keep-outs drawn on side A
-  apply to side B over their full depth (`protectBelowZ` is dropped). Consider separate side-B keep-outs.
+- **Side-B keep-outs in the 3D view.** Keep-outs can apply to side A, side B or both (`Region.sides`). They are all
+  drawn in the side-A top view, mirrored for side B. A view of the back as it sits on the machine would make clamp
+  positions easier to place.
 - **Necks.** Necks are thick (often over 45 mm with the headstock), so the dowel depth limit bites. Consider dowels
   that go only partway through the stock, or a shorter spoilboard depth.
 - **Facing on side B.** It isn't offered (the user doesn't want it), but a blank thicker than the part relies on

@@ -352,6 +352,16 @@ struct RegionInspector: View {
                 }
                 Toggle("Enabled", isOn: model.regionBinding(id, \.enabled))
             }
+            if model.job.activeFlip != nil {
+                Section {
+                    Picker("Side", selection: model.regionBinding(id, \.appliesTo)) {
+                        ForEach(RegionSides.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                    }
+                } footer: {
+                    Text("Clamps usually move when the stock is flipped: give each side its own keep-outs. Draw side-B regions in this same top view, over the side-B toolpaths as they are shown here; Swarf mirrors them onto the back.")
+                        .font(.caption)
+                }
+            }
             Section("Rectangle (stock coordinates)") {
                 NumberField(title: "Min X", value: model.regionBinding(id, \.min.x), step: 1)
                 NumberField(title: "Min Y", value: model.regionBinding(id, \.min.y), step: 1)
