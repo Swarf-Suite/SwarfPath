@@ -76,7 +76,7 @@ public struct MachineProfile: Codable, Sendable, Identifiable, Hashable {
         fileExtension: "nc", commentStyle: .parentheses, toolChange: .none, splitFilesPerTool: true,
         spindleDwell: 5, dwellSyntax: .pSeconds,
         header: ["G90 G94 G17 G21", "G54"], footer: ["G0 Z{safeZ}", "G0 X0 Y0", "M5", "M2"],
-        envelope: V3(800, 800, 125), maxFeed: 5000, rapidRate: 5000, acceleration: 800, minRPM: 6000, maxRPM: 24000,
+        envelope: V3(800, 800, 125), maxFeed: 5000, rapidRate: 6000, acceleration: 800, minRPM: 6000, maxRPM: 24000,
         notes: "One file per tool (the offline controller has no tool changer). 5 s spin-up for the VFD spindle; S is rpm, 6000-24000.")
 
     public static let shapeoko = MachineProfile(

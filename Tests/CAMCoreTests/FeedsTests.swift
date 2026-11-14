@@ -20,7 +20,10 @@ import Testing
         #expect(out.range.contains(out.targetChipLoad))
         #expect(abs(out.chipLoad - out.targetChipLoad) < 0.001)
         #expect(out.plunge < out.feed)
-        #expect(FeedsCalculator.calculate(request(flat6, maxFeed: 5000)).plunge <= 900)
+        #expect(FeedsCalculator.calculate(request(flat6, maxFeed: 5000)).plunge <= 800)
+        var big = flat6
+        big.diameter = 12
+        #expect(FeedsCalculator.calculate(request(big, maxFeed: 20000)).plunge == FeedsCalculator.maxPlunge)
     }
 
     /// When the machine's top feed decides, the spindle slows to keep the chip load: same speed, quieter.

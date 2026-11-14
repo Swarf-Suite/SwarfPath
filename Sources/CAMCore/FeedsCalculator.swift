@@ -91,6 +91,9 @@ public enum FeedsCalculator {
         return max(0.05, min(sd, tool.fluteLength > 0 ? tool.fluteLength : sd))
     }
 
+    /// Fastest plunge the calculator suggests (mm/min).
+    public static let maxPlunge = 800.0
+
     public struct Request: Sendable {
         public var tool: Tool
         public var material: Material
@@ -161,9 +164,9 @@ public enum FeedsCalculator {
         }
         let feed = min(maxFeed, max(10, (rpm * z * fpt / 10).rounded() * 10))
         let plungeShare: Double = r.tool.kind == .drill || r.tool.kind == .vBit ? 0.5 : 0.3
-        // Straight down the bit can't clear chips sideways: a share of the feed, and no more than about 150 mm/min
-        // per mm of diameter.
-        let plunge = max(10, (min(feed * plungeShare, 150 * max(1, r.tool.diameter)) / 10).rounded() * 10)
+        // Straight down the bit can't clear chips sideways: a share of the feed, no more than about 150 mm/min per mm
+        // of diameter, and never over `maxPlunge`.
+        let plunge = max(10, (min(feed * plungeShare, 150 * max(1, r.tool.diameter), maxPlunge) / 10).rounded() * 10)
         let realFPT = feed / (rpm * z)
         return Result(rpm: rpm, feed: feed, plunge: plunge, range: range, targetChipLoad: target,
                       chipLoad: realFPT / thin, feedPerTooth: realFPT, thinning: thin, limit: limit, quieterRPM: quieter)
