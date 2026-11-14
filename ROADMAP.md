@@ -6,7 +6,7 @@ Open work and loose ends. Remove an item when it's done; add new ones as they co
 
 Two-sided (flip) machining is in: dowel holes, side A, a roll about X, then side B (`Flip.swift`). Loose ends:
 
-- **Run a flip job on the WorkBee.** Check three things:
+- **Run a flip job on the machine.** Check three things:
   - The dowel holes line up after the roll.
   - Side-B cavities land where the model has them.
   - Re-probing Z on the new top is enough.
@@ -35,7 +35,7 @@ Two-sided (flip) machining is in: dowel holes, side A, a roll about X, then side
 
 Rest machining is in (`Rest.swift`): a smaller tool cuts only what a larger one left. Loose ends:
 
-- **Cut a rest pass on the WorkBee** with a real small bit, and measure its flute length and shank. The starter values
+- **Cut a rest pass on the machine** with a real small bit, and measure its flute length and shank. The starter values
   for the 2 mm, 1 mm and 0.9 mm bits are typical, not measured.
 - **Uncut stock and the shank.** The shank is kept off the model, but not off leftover material that this tool itself
   can't reach. That needs leftover deep beside a wall within a shank radius of where the bit cuts; it hasn't come up in
@@ -48,11 +48,11 @@ Rest machining is in (`Rest.swift`): a smaller tool cuts only what a larger one 
 
 The wide trench is in (`cutout` in Operations.swift, `CutoutTrench` in Job.swift). Loose ends:
 
-- **Cut one on the WorkBee** and see whether chips really clear better, and whether a deeper stepdown is then safe.
+- **Cut one on the FoxAlien** and see whether chips really clear better, and whether a deeper stepdown is then safe.
 - **Trench only where it's deep: not possible.** To cut the outer pass at depth, the cutter needs the whole trench
   above it cleared, so the outer pass has to start at the top. Time savings have to come from elsewhere.
 - **Second-pass feed on the machine.** It runs at 1.25× by default (63 → 58 min on a guitar body). Find out how
-  far it can really go on the WorkBee.
+  far it can really go on the FoxAlien.
 
 ## Feeds and speeds
 
@@ -84,11 +84,8 @@ The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:
     anything that can reach the page can move the machine.
 - **Check that the export file name is remembered.** Typing a name and the live rename were checked in the
   app. Saving the name with the project and reopening it were not.
-- **Check `M3 P0` / `M5 P0` and rapids on the WorkBee.** Run an exported file on the machine and confirm two
+- **Check `M3 P0` / `M5 P0` and rapids on a Duet (RRF) machine such as the WorkBee.** Run an exported file on the machine and confirm two
   things:
   - The "M3: No P parameter and no active tool with spindle" error is gone. If the Duet's `config.g` puts the
     spindle under a number other than 0 (the `R` value on its `M950` line), the RRF profiles need that number.
   - Rapids (`G0 … F5000`) now run at rapid speed rather than the cutting feed.
-
-## Website and docs
-
