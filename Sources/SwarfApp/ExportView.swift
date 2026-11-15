@@ -253,8 +253,8 @@ struct ExportView: View {
             do {
                 try files[0].content.write(to: url, atomically: true, encoding: .utf8)
                 saveFileName()
-                exported = "Saved \(url.lastPathComponent)"
                 problem = nil
+                confirmAndClose("G-code saved", "Saved \(url.lastPathComponent) to \(url.deletingLastPathComponent().lastPathComponent).")
             } catch { problem = "Could not save \(url.lastPathComponent): \(error.localizedDescription)" }
         } else {
             let panel = NSOpenPanel()
@@ -280,9 +280,9 @@ struct ExportView: View {
                     written += 1
                 }
                 saveFileName()
-                exported = "Saved \(files.count) files to \(dir.lastPathComponent)"
                 problem = nil
-                NSWorkspace.shared.activateFileViewerSelecting([dir.appendingPathComponent(files[0].name)])
+                confirmAndClose("G-code saved", "Saved \(files.count) files to \(dir.lastPathComponent). Run them in order.",
+                                reveal: dir.appendingPathComponent(files[0].name))
             } catch {
                 problem = "Only \(written) of \(files.count) files were saved. Do not run this set: \(error.localizedDescription)"
             }
@@ -300,12 +300,29 @@ struct ExportView: View {
             do {
                 let n = try await GCodeHub.send(payload, source: "Swarf", group: group)
                 saveFileName()
-                exported = n == 1 ? "Sent \(payload[0].name) to GCode Controller" : "Sent \(n) files to GCode Controller as \"\(group)\""
+                sending = false
+                confirmAndClose("Sent to GCode Controller",
+                                n == 1 ? "\(payload[0].name) is in the controller's library, ready to run."
+                                       : "\(n) files are in the controller's library as \"\(group)\", in the order to run them.")
+                return
             } catch {
                 problem = error.localizedDescription
             }
             sending = false
         }
+    }
+
+    /// After a successful save or send: confirm with an OK button, then close the export dialog.
+    /// (A saved set of several files is shown in Finder once OK is pressed.)
+    @MainActor func confirmAndClose(_ title: String, _ detail: String, reveal: URL? = nil) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = title
+        alert.informativeText = detail
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        if let reveal { NSWorkspace.shared.activateFileViewerSelecting([reveal]) }
+        dismiss()
     }
 
     @MainActor func exportSetupSheet() {
