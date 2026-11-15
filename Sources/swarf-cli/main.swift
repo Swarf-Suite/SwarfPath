@@ -20,6 +20,7 @@ func usage(_ reason: String? = nil) -> Never {
       --vcarve-source <s>   recesses (default) | silhouette
       --vcarve-depth <mm>   flat-bottom depth limit for V-carving (default: unlimited)
       --out <dir>           output directory (default: current)
+      --send [url]          also send the G-code to GCode Controller (default http://localhost:8080)
       --simulate            run stock simulation and report gouges/leftover
       --png <file>          write a top-view preview (implies --simulate)
       --png-underside <file> write the back as machined on side B, seen after the flip: leftover blue,
@@ -61,6 +62,7 @@ if path.hasSuffix(".swarf") {
     projectJob = true
 }
 var outDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+var sendTo: String?
 var opsList: [(OperationKind, MachiningSide)]? = nil
 var restDiameter: Double? = nil
 var trenchFactor: Double? = nil
@@ -93,6 +95,9 @@ while i < args.count {
         guard let quality = ResolutionQuality(rawValue: q) else { usage("unknown quality \"\(q)\" (draft, normal or fine)") }
         job.quality = quality
     case "--out": outDir = URL(fileURLWithPath: next())
+    case "--send":
+        sendTo = ""
+        if i + 1 < args.count, !args[i + 1].hasPrefix("--") { i += 1; sendTo = args[i] }
     case "--simulate": simulate = true
     case "--png": pngPath = next(); simulate = true
     case "--png-no-paths": pngPaths = false
@@ -232,10 +237,16 @@ do {
                              testCut: job.activeTestCut)
     for w in post.validate(out.toolpaths) { print("  ⚠︎ \(w)") }
     try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
-    for f in post.process(out.toolpaths) {
+    let postFiles = post.process(out.toolpaths)
+    for f in postFiles {
         let url = outDir.appendingPathComponent(f.name)
         try f.content.write(to: url, atomically: true, encoding: .utf8)
         print("Wrote \(url.path) (\(f.content.split(separator: "\n").count) lines)")
+    }
+    if let sendTo {
+        let files = postFiles.map { GCodeHub.File(name: $0.name, content: $0.content) }
+        let n = try await GCodeHub.send(files, source: "Swarf", group: post.fileBaseName, address: sendTo.isEmpty ? nil : sendTo)
+        print("Sent \(n) file\(n == 1 ? "" : "s") to GCode Controller at \(GCodeHub.resolvedAddress(sendTo.isEmpty ? nil : sendTo))")
     }
     if simulate {
         var sim = StockSimulator(stockSize: s, resolution: StockSimulator.defaultResolution(for: s))

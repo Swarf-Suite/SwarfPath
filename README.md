@@ -187,6 +187,19 @@ swift build -c release
 
 Given a `.swarf` project, the CLI uses its saved operations, regions, stock and work zero.
 
+### Sending to GCode Controller
+
+[GCode Controller](https://github.com/mouldiwarp/gcode-controller) is a networked GRBL sender. In the Export
+dialog, **Send to GRBL Controller** delivers the G-code straight to its library instead of saving files.
+Multi-file jobs (one file per tool, or side A and side B) arrive grouped, in run order. The address
+defaults to `http://localhost:8080` (the hub running on this Mac). Change it in **Settings → General**.
+From the command line:
+
+```bash
+.build/release/swarf-cli model.stl --machine foxalien-xe-pro-ultra --out ./gcode --send
+.build/release/swarf-cli model.stl --out ./gcode --send http://studio.local:8080
+```
+
 Options: `--machine <id>`, `--material <id>`, `--quality draft|normal|fine`, `--lay-flat`,
 `--rotate x:90`, `--ops facing,pocket,roughing,parallelFinish,waterlineFinish,vcarve,drill,cutout`,
 `--keepout x0,y0,x1,y1`, `--vcarve-source recesses|silhouette`, `--vcarve-depth <mm>`,

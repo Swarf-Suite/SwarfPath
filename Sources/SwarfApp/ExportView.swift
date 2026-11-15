@@ -21,6 +21,7 @@ struct ExportView: View {
     @State private var buildTask: Task<Void, Never>?
     /// The base name the current `files` were named with, so a new file name only renames them.
     @State private var builtBase = ""
+    @State private var sending = false
     /// Showing the G-code is optional: off by default, remembered between exports.
     @AppStorage("exportShowPreview") private var showPreview = false
 
@@ -129,6 +130,13 @@ struct ExportView: View {
                 .disabled(files.isEmpty || preparing)
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button {
+                    sendToController()
+                } label: {
+                    if sending { ProgressView().controlSize(.small) } else { Label("Send to GRBL Controller", systemImage: "paperplane") }
+                }
+                .help("Send the G-code to GCode Controller at \(GCodeHub.address), ready to run on the machine")
+                .disabled(files.isEmpty || blocking || preparing || sending)
                 Button(files.count > 1 ? "Export \(files.count) Files…" : "Export…") { export() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(files.isEmpty || blocking || preparing)
@@ -278,6 +286,25 @@ struct ExportView: View {
             } catch {
                 problem = "Only \(written) of \(files.count) files were saved. Do not run this set: \(error.localizedDescription)"
             }
+        }
+    }
+
+    /// Sends the prepared files to the GCode Controller hub, in run order and grouped, instead of saving them.
+    func sendToController() {
+        let payload = files.map { GCodeHub.File(name: $0.name, content: $0.content) }
+        let group = builtBase
+        sending = true
+        problem = nil
+        exported = nil
+        Task {
+            do {
+                let n = try await GCodeHub.send(payload, source: "Swarf", group: group)
+                saveFileName()
+                exported = n == 1 ? "Sent \(payload[0].name) to GCode Controller" : "Sent \(n) files to GCode Controller as \"\(group)\""
+            } catch {
+                problem = error.localizedDescription
+            }
+            sending = false
         }
     }
 
