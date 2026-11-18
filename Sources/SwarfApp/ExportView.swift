@@ -135,7 +135,7 @@ struct ExportView: View {
                 } label: {
                     if sending { ProgressView().controlSize(.small) } else { Label("Send to GRBL Controller", systemImage: "paperplane") }
                 }
-                .help("Send the G-code to GCode Controller at \(GCodeHub.address), ready to run on the machine")
+                .help("Send the G-code to KerfLine at \(GCodeHub.address), ready to run on the machine")
                 .disabled(files.isEmpty || blocking || preparing || sending)
                 Button(files.count > 1 ? "Export \(files.count) Files…" : "Export…") { export() }
                     .keyboardShortcut(.defaultAction)
@@ -289,7 +289,7 @@ struct ExportView: View {
         }
     }
 
-    /// Sends the prepared files to the GCode Controller hub, in run order and grouped, instead of saving them.
+    /// Sends the prepared files to the KerfLine hub, in run order and grouped, instead of saving them.
     func sendToController() {
         let payload = files.map { GCodeHub.File(name: $0.name, content: $0.content) }
         let group = builtBase
@@ -301,7 +301,7 @@ struct ExportView: View {
                 let n = try await GCodeHub.send(payload, source: "Swarf", group: group)
                 saveFileName()
                 sending = false
-                confirmAndClose("Sent to GCode Controller",
+                confirmAndClose("Sent to KerfLine",
                                 n == 1 ? "\(payload[0].name) is in the controller's library, ready to run."
                                        : "\(n) files are in the controller's library as \"\(group)\", in the order to run them.")
                 return

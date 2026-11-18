@@ -1,6 +1,6 @@
 import Foundation
 
-/// Sends G-code straight to a GCode Controller hub (github.com/mouldiwarp/gcode-controller), which
+/// Sends G-code straight to a KerfLine hub (github.com/mouldiwarp/kerfline), which
 /// queues it for the machine. The hub normally runs on this Mac, so the default address is localhost.
 public enum GCodeHub {
     public static let urlKey = "gcodeHubURL"
@@ -34,7 +34,7 @@ public enum GCodeHub {
     public static func send(_ files: [File], source: String, group: String?, address override: String? = nil) async throws -> Int {
         let address = resolvedAddress(override)
         guard let base = URL(string: address), base.scheme == "http" || base.scheme == "https" else {
-            throw Failure(message: "The GCode Controller address \"\(address)\" isn't a valid http:// URL. Check it in Settings.")
+            throw Failure(message: "The KerfLine address \"\(address)\" isn't a valid http:// URL. Check it in Settings.")
         }
         let grouped = files.count > 1 ? group : nil
         for (i, f) in files.enumerated() {
@@ -53,12 +53,12 @@ public enum GCodeHub {
             do {
                 (data, response) = try await URLSession.shared.upload(for: req, from: Data(f.content.utf8))
             } catch let e as URLError where [.cannotConnectToHost, .cannotFindHost, .timedOut, .networkConnectionLost].contains(e.code) {
-                throw Failure(message: "GCode Controller isn't reachable at \(address). Start the hub (Start Hub.command), then try again.")
+                throw Failure(message: "KerfLine isn't reachable at \(address). Open KerfLine on that Mac, then try again.")
             }
-            guard let http = response as? HTTPURLResponse else { throw Failure(message: "No reply from GCode Controller.") }
+            guard let http = response as? HTTPURLResponse else { throw Failure(message: "No reply from KerfLine.") }
             if http.statusCode != 201 && http.statusCode != 200 {
                 let reason = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
-                throw Failure(message: "GCode Controller refused \(f.name): \(reason ?? "HTTP \(http.statusCode)")")
+                throw Failure(message: "KerfLine refused \(f.name): \(reason ?? "HTTP \(http.statusCode)")")
             }
         }
         return files.count

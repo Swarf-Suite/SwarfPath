@@ -187,9 +187,9 @@ swift build -c release
 
 Given a `.swarf` project, the CLI uses its saved operations, regions, stock and work zero.
 
-### Sending to GCode Controller
+### Sending to KerfLine
 
-[GCode Controller](https://github.com/mouldiwarp/gcode-controller) is a networked GRBL sender. In the Export
+[KerfLine](https://github.com/mouldiwarp/kerfline) is a networked GRBL sender. In the Export
 dialog, **Send to GRBL Controller** delivers the G-code straight to its library instead of saving files.
 Multi-file jobs (one file per tool, or side A and side B) arrive grouped, in run order. The address
 defaults to `http://localhost:8080` (the hub running on this Mac). Change it in **Settings → General**.

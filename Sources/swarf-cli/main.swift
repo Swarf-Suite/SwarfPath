@@ -20,7 +20,7 @@ func usage(_ reason: String? = nil) -> Never {
       --vcarve-source <s>   recesses (default) | silhouette
       --vcarve-depth <mm>   flat-bottom depth limit for V-carving (default: unlimited)
       --out <dir>           output directory (default: current)
-      --send [url]          also send the G-code to GCode Controller (default http://localhost:8080)
+      --send [url]          also send the G-code to KerfLine (default http://localhost:8080)
       --simulate            run stock simulation and report gouges/leftover
       --png <file>          write a top-view preview (implies --simulate)
       --png-underside <file> write the back as machined on side B, seen after the flip: leftover blue,
@@ -246,7 +246,7 @@ do {
     if let sendTo {
         let files = postFiles.map { GCodeHub.File(name: $0.name, content: $0.content) }
         let n = try await GCodeHub.send(files, source: "Swarf", group: post.fileBaseName, address: sendTo.isEmpty ? nil : sendTo)
-        print("Sent \(n) file\(n == 1 ? "" : "s") to GCode Controller at \(GCodeHub.resolvedAddress(sendTo.isEmpty ? nil : sendTo))")
+        print("Sent \(n) file\(n == 1 ? "" : "s") to KerfLine at \(GCodeHub.resolvedAddress(sendTo.isEmpty ? nil : sendTo))")
     }
     if simulate {
         var sim = StockSimulator(stockSize: s, resolution: StockSimulator.defaultResolution(for: s))

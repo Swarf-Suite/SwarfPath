@@ -31,7 +31,7 @@ struct GeneralSettings: View {
             Picker("Default resolution", selection: $quality) {
                 ForEach(ResolutionQuality.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0.rawValue) }
             }
-            TextField("GCode Controller address", text: $hubURL, prompt: Text(GCodeHub.defaultURL))
+            TextField("KerfLine address", text: $hubURL, prompt: Text(GCodeHub.defaultURL))
                 .help("Where Send to GRBL Controller delivers G-code. Leave empty if the hub runs on this Mac.")
             LabeledContent("Tool library file") {
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([ToolLibraryStore.fileURL]) }
