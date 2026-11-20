@@ -45,6 +45,7 @@ public final class CAMContext: @unchecked Sendable {
 
     private var fieldCache: [String: Grid2D] = [:]
     var restCache: [String: RestField] = [:]
+    var cleanupCache: [String: RoughingCleanup?] = [:]
     private var footprintCache: Footprint?
     let lock = NSLock()
     private var sideBCache: CAMContext?
@@ -314,7 +315,14 @@ public final class CAMContext: @unchecked Sendable {
     /// footprint covers model higher than the flute length above the tip, the tip is raised. Out-of-bounds cells
     /// (forbidden by the boundary or a keep-out) count as uncut stock at the stock top for that test, so the shank
     /// never runs deep along an edge it can't see; outside the stock there is nothing to hit.
+    ///
+    /// A roughing operation with finishes after it is also held up where they can't follow it (`roughingCleanup`).
     public func toolField(_ op: Operation) -> Grid2D {
+        if op.kind == .roughing, let c = roughingCleanup(op) { return c.field }
+        return baseToolField(op)
+    }
+
+    func baseToolField(_ op: Operation) -> Grid2D {
         let key = fieldKey(op)
         lock.lock()
         if let f = fieldCache[key] { lock.unlock(); return f }
@@ -432,6 +440,14 @@ public final class CAMContext: @unchecked Sendable {
             tp.warnings.append(String(format: "Cuts %.2f mm below the stock bottom%@.", -deepest,
                                       op.kind == .vcarve ? " — set a depth limit or use a wider-angle V-bit" : ""))
         }
+        if op.kind == .parallelFinish { tp.notes.append(rasterChoice(op).reason) }
+        if let c = roughingCleanup(op) {
+            tp.notes.append(cleanupNote(c))
+            if c.extra > 1 {
+                tp.warnings.append(String(format: "%@ will take up to %.1f mm in one pass where this roughing stays higher. A rest-machining pass with a smaller cutter before it would let it go lower.", c.finish.name, c.extra + op.stockToLeaveZ))
+            }
+        }
+        if let w = shortfallWarning(op) { tp.warnings.append(w) }
         if let w = restWarning(op) { tp.warnings.append(w) }
         if let w = hogSkinWarning(op) { tp.warnings.append(w) }
         if let w = depthWarning(op, depth: stockTop - deepest) { tp.warnings.append(w) }

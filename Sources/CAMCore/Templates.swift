@@ -108,6 +108,7 @@ public enum JobTemplates {
             ops.append(r)
             var p = Operation(kind: .parallelFinish, tool: ball, material: material)
             p.name = "Finish (parallel)"
+            // Direction is automatic; 45° is only for surfaces with no best direction (a dome).
             p.rasterAngle = 45
             p.slopeLimit = 50
             finishOps.append(p)

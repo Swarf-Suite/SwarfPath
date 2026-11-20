@@ -826,6 +826,15 @@ final class ProjectModel: ObservableObject {
             own += "#ref\(i ?? -1)|" + String(decoding: (try? enc.encode(r)) ?? Data(), as: UTF8.self)
                 + "|\(job.operations.firstIndex { $0.id == op.id } ?? -1)"
         }
+        // Roughing stays high enough for the 3D finishes after it (`CAMContext.roughingCleanup`), so it, and a
+        // rest pass following it, depend on those finishes and their order.
+        if op.kind == .roughing || op.restFromOp != nil {
+            for (i, f) in job.operations.enumerated() where f.kind == .parallelFinish || f.kind == .waterlineFinish {
+                var g = f
+                g.name = ""
+                own += "#fin\(i)|" + String(decoding: (try? enc.encode(g)) ?? Data(), as: UTF8.self)
+            }
+        }
         return op.machiningSide == .b && op.kind != .dowelHoles ? own + "#B" + Self.cutoutsKey(job) : own
     }
 
@@ -956,6 +965,7 @@ final class ProjectModel: ObservableObject {
         for op in job.operations {
             let tp = toolpaths.first { $0.id == op.id }
             lines.append("op \(op.name) | \(op.kind.rawValue) | tool \(op.tool.name) | rest \(op.restFrom?.name ?? "-") | moves \(tp?.moves.count ?? -1)")
+            for n in tp?.notes ?? [] { lines.append("  note \(n)") }
             for w in tp?.warnings ?? [] { lines.append("  warning \(w)") }
         }
         if let a = simAnalysis { lines.append("sim gouges \(a.gougeCells) leftover \(a.leftoverCells)") }

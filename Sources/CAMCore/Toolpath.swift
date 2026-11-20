@@ -28,6 +28,8 @@ public struct Toolpath: Sendable, Identifiable {
     public var start: V3
     public var moves: [Move]
     public var warnings: [String] = []
+    /// Information about choices the engine made (not problems), e.g. the raster direction it picked.
+    public var notes: [String] = []
     /// Engraving operations (V-carve): cells (1 = inside) where cutting below the model surface is intentional.
     public var engraveMask: Grid2D? = nil
     /// The face this toolpath machines. Side-B moves are in side-B stock space (the machine's view after the flip).

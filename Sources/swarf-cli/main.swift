@@ -230,6 +230,7 @@ do {
     for tp in out.toolpaths {
         let st = tp.stats(rapidRate: profile.rapidRate, acceleration: profile.acceleration)
         print(String(format: "  %-22@ %@  moves %6d  cut %8.0f mm  time %5.1f min", tp.name as NSString, tp.tool.name, tp.moves.count, st.cutLength, st.seconds / 60))
+        for n in tp.notes { print("    ℹ︎ \(n)") }
         for w in tp.warnings { print("    ⚠︎ \(w)") }
     }
     let post = PostProcessor(profile: profile, origin: ctx.placed.originPoint(job.origin), safeZ: ctx.safeZ,

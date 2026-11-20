@@ -102,8 +102,8 @@ The [user guide](docs/Swarf-User-Guide.pdf) covers each step in detail.
 |---|---|
 | Facing | Surfaces the stock top |
 | Pocket / Cavity | 2.5D clearing inside the model outline, with exact passes on every flat floor |
-| 3D Roughing | Waterline offset clearing with ramped entries and stock to leave |
-| 3D Finish – Parallel | Raster passes at any angle, optionally only on shallow slopes |
+| 3D Roughing | Waterline offset clearing with ramped entries and stock to leave. When a 3D finish follows, it stays higher wherever that finish can't get as low (a big flat end mill in a cove a smaller bit went into), so the finish takes off every roughing step and no shelves are left |
+| 3D Finish – Parallel | Raster passes, optionally only on shallow slopes. The direction is **automatic** by default: passes run the way the surface curves most and step over where it is straightest (a neck lying along X has its fretboard-to-headstock curve cut along X), or at a set angle |
 | 3D Finish – Waterline | Constant-Z contours, optionally only on steep walls |
 | V-Carve | Engraves text and logos with a V-bit. Corners stay sharp and the depth follows the stroke width. Optional flat-bottom depth limit |
 | Drill (Peck) | Finds round holes that match the tool diameter and pecks them, with a full retract to clear chips or a short chip-break lift. Blind holes stop at their floor; through holes go below the stock. Output is plain G0/G1, so it runs on any firmware |

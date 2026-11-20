@@ -154,6 +154,8 @@ extension CAMContext {
         let wallOffset = op.tool.radius + op.stockToLeaveXY
         // Rest machining: only positions whose cutter touches material a larger tool left (see `RestField`).
         let rest = restField(op)
+        // Where roughing is held up for the finishes after it, the exact wall would be too low.
+        let cleanupFloor = op.kind == .roughing ? roughingCleanup(op)?.floor : nil
         var footprints: [Double: ToolFootprint] = [:]
         func wallAllowed(_ p: V2, _ z: Double) -> Bool {
             if isForbiddenXY(p, z: z, op: op, inflate: op.tool.radius) { return false }
@@ -293,7 +295,9 @@ extension CAMContext {
                 return f
             }() : nil
             for l in Contours.isolines(negT, levels: [-zf])[0] {
-                let wall = fp?.refine(l, extra: 0, maxShift: 2 * T.res) { wallAllowed($0, z) } ?? l
+                let wall = fp?.refine(l, extra: 0, maxShift: 2 * T.res) { p in
+                    wallAllowed(p, z) && !(cleanupFloor.map { $0.sample(p) > zf } ?? false)
+                } ?? l
                 loopsByK.append((0, straightenGridRuns(wall, exactAt: 0, footprint: fp, field: T, isWall: true, safe: safe)))
             }
             var offs: [Float] = []
@@ -544,7 +548,7 @@ extension CAMContext {
         var b = builder(op)
         let floor = floorZ(op) + op.stockToLeaveZ
         let so = op.stepover
-        let th = op.rasterAngle * .pi / 180
+        let th = rasterChoice(op).angle * .pi / 180
         let u = V2(cos(th), sin(th)), v = V2(-sin(th), cos(th))
         // valid bbox
         var lo = V2(repeating: .infinity), hi = V2(repeating: -.infinity)

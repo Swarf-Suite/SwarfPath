@@ -632,6 +632,7 @@ struct OperationInspector: View {
             LabeledContent("Estimated time", value: formatDuration(s.seconds))
             LabeledContent("Cutting length", value: String(format: "%.2f m", s.cutLength / 1000))
             LabeledContent("Depth range", value: String(format: "%.2f … %.2f mm", s.bounds.min.z - (model.placed?.stockTop ?? 0), s.bounds.max.z - (model.placed?.stockTop ?? 0)))
+            ForEach(tp.notes, id: \.self) { n in Label(n, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary) }
             ForEach(tp.warnings, id: \.self) { w in Label(w, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange) }
         }
     }
@@ -656,7 +657,12 @@ struct OperationInspector: View {
             }
         case .parallelFinish:
             Section("Raster") {
-                NumberField(title: "Angle", value: b(\.rasterAngle), unit: "°", step: 15, range: -180...180, digits: 0)
+                Toggle("Automatic direction", isOn: b(\.rasterIsAuto))
+                NumberField(title: op.rasterIsAuto ? "Otherwise" : "Angle", value: b(\.rasterAngle), unit: "°", step: 15, range: -180...180, digits: 0)
+                Text(op.rasterIsAuto
+                     ? "Passes run along the direction the surface curves most and step over where it is straightest (on a neck lying along X, the fretboard-to-headstock curve is cut along X), so the passes leave the smallest ridges. The angle is used only where no direction is better, such as a dome."
+                     : "Passes run at this angle: 0° along X, 90° along Y.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 Toggle("Zig-zag", isOn: b(\.zigzag))
                 NumberField(title: "Only slopes below", value: b(\.slopeLimit), unit: "° (0=all)", step: 5, range: 0...90, digits: 0)
             }

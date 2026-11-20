@@ -54,6 +54,20 @@ The wide trench is in (`cutout` in Operations.swift, `CutoutTrench` in Job.swift
 - **Second-pass feed on the machine.** It runs at 1.25× by default (63 → 58 min on a guitar body). Find out how
   far it can really go on the FoxAlien.
 
+## Finishing direction
+
+Parallel finishes pick their direction from the surface, and roughing leaves enough for the finishes after it
+(`FinishDirection.swift`). Loose ends:
+
+- **Finish a neck on the FoxAlien** with a flat end mill along X and check the headstock transition for ridges and
+  roughing steps.
+- **One direction per operation.** A part with several differently curved areas gets the weighted average direction.
+  Splitting the area into regions with their own direction (with machine-only regions today, by hand) would suit
+  bodies with carves running different ways.
+- **Planning roughing generates the finish too.** Roughing is held up only where the finish's own toolpath, simulated,
+  doesn't get below it, so the finish is generated twice (about 4 s more on the dome fixture). Caching the finish's
+  toolpath in `CAMContext` would save that.
+
 ## Feeds and speeds
 
 The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:

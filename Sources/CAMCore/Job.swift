@@ -135,6 +135,14 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
     public var facingDepth = 1.0
     // Finishing
     public var rasterAngle = 0.0
+    /// Parallel finish: work out the raster angle from the surface (passes along the direction it curves most), and use
+    /// `rasterAngle` only where the surface gives no best direction. nil = off, so projects saved before it existed keep
+    /// the angle they were made with; new parallel finishes turn it on.
+    public var autoRaster: Bool? = nil
+    public var rasterIsAuto: Bool {
+        get { autoRaster ?? false }
+        set { autoRaster = newValue }
+    }
     /// For combined steep/shallow strategies (degrees). 0 = machine everything.
     public var slopeLimit = 0.0
     public var zigzag = true
@@ -250,6 +258,7 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
         case .parallelFinish:
             cutting.stepoverPercent = tool.kind == .ball ? 10 : 25
             boundary = .silhouette; boundaryMargin = tool.radius
+            autoRaster = true
         case .waterlineFinish:
             cutting.stepdown = min(cutting.stepdown, 0.5)
             boundary = .silhouette; boundaryMargin = tool.radius
