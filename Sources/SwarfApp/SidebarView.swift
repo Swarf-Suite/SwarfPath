@@ -149,6 +149,11 @@ struct SidebarView: View {
                         ForEach(OperationKind.allCases) { k in
                             Button { model.addOperation(k) } label: { Label(k.displayName, systemImage: k.symbol) }
                         }
+                        Divider()
+                        Button(role: .destructive) { model.deleteAllOperations() } label: {
+                            Label("Delete All Operations", systemImage: "trash")
+                        }
+                        .disabled(model.job.operations.isEmpty)
                     } label: { Image(systemName: "plus") }
                         .menuStyle(.borderlessButton)
                         .menuIndicator(.hidden)

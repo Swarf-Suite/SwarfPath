@@ -562,6 +562,15 @@ final class ProjectModel: ObservableObject {
         if selection == .operation(id) { selection = nil }
     }
 
+    /// Removes every operation (regions and the rest of the job stay). Undoable.
+    func deleteAllOperations() {
+        guard !job.operations.isEmpty else { return }
+        let n = job.operations.count
+        updateJob("Delete All Operations") { $0.operations.removeAll() }
+        if case .operation = selection { selection = nil }
+        showNotice("Deleted \(n) operation\(n == 1 ? "" : "s"). Undo with ⌘Z.")
+    }
+
     func moveOperations(from: IndexSet, to: Int) {
         updateJob("Reorder Operations") { $0.operations.move(fromOffsets: from, toOffset: to) }
     }
