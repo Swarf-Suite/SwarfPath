@@ -163,7 +163,9 @@ extension CAMContext {
             switch op.boundary {
             case .stock: return p.x >= -R && p.y >= -R && p.x <= s.x + R && p.y <= s.y + R
             case .silhouette: return Double(silhouetteDistance.sample(p)) <= op.boundaryMargin + wallOffset
-            case .insideSilhouette: return insideOrEnclosed(p, band: enclosedHoleBand(op))
+            case .insideSilhouette:
+                if op.runsPastOpenEdges && pastOpenEdge(p, op: op) { return true }
+                return insideOrEnclosed(p, band: enclosedHoleBand(op))
             }
         }
         var levels: [Double] = []
@@ -366,6 +368,16 @@ extension CAMContext {
             progress?(Double(li + 1) / Double(levels.count) * (rest == nil ? 1 : 0.8))
         }
         if let rest { try emitDepthFirst(areas, rest: rest) }
+        // Slots the cutter only just fits, which the grid can't see (see `narrowSlotPasses`).
+        if exactWalls {
+            let slots = try narrowSlotPasses(op, levels: levels, field: T0, rest: rest, footprint: { z in
+                if let f = footprints[z] { return f }
+                let f = ToolFootprint(mesh: placed.mesh, tool: op.tool, tipZ: z, leaveXY: op.stockToLeaveXY, leaveZ: op.stockToLeaveZ)
+                footprints[z] = f
+                return f
+            }, allowed: wallAllowed)
+            emitSlotPasses(slots, levels: levels, into: &b, op: op)
+        }
         b.retract()
         var tp = makeToolpath(op, b)
         if tp.moves.count < 3 { tp.warnings.append(rest == nil ? "Nothing to clear with this tool and boundary." : "Nothing left for this tool to clear.") }

@@ -96,7 +96,7 @@ extension CAMContext {
         var area = 0.0, unreachable = 0.0, unreachableDepth: Float = 0, thickest: Float = 0
         for i in src.indices {
             let r = R.data[i], s = S.data[i]
-            if r - s > tol { src[i] = r; area += cell; thickest = max(thickest, r - s) }
+            if r - s > tol && !isPastOpenEdge(i, op: op) { src[i] = r; area += cell; thickest = max(thickest, r - s) }
             let s0 = S0.data[i]
             if r - s0 > tol && s - s0 > tol {
                 unreachable += cell

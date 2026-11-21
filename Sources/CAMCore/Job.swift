@@ -229,6 +229,13 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
     /// Machine straight over round holes that a drilling operation in the job cuts, as if they were solid at their rim,
     /// instead of clearing around them. nil = off (older projects).
     public var leaveHolesToDrill: Bool? = nil
+    /// "Inside model only" that still runs past the part's open outline (see `CAMContext.edgeExtension`), so faces are
+    /// cut right to their edge instead of stopping a cutter radius short. Optional: older projects decode without it.
+    public var pastOpenEdges: Bool? = nil
+    public var runsPastOpenEdges: Bool {
+        get { pastOpenEdges ?? false }
+        set { pastOpenEdges = newValue ? true : nil }
+    }
     public var ignoresDrilledHoles: Bool {
         get { leaveHolesToDrill ?? false }
         set { leaveHolesToDrill = newValue ? true : nil }
@@ -273,6 +280,7 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
             boundary = .silhouette; boundaryMargin = tool.radius
         case .pocket:
             boundary = .insideSilhouette
+            runsPastOpenEdges = true
         case .parallelFinish:
             cutting.stepoverPercent = tool.kind == .ball ? 10 : 25
             boundary = .silhouette; boundaryMargin = tool.radius

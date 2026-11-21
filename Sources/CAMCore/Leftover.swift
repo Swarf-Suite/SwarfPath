@@ -133,7 +133,7 @@ extension CAMContext {
         for i in src.indices {
             let r = prior.data[i], s = S.data[i]
             guard r > Grid2D.none / 2 else { continue }
-            if r - s > tol { src[i] = r; area += cell; thickest = max(thickest, r - s) }
+            if r - s > tol && !isPastOpenEdge(i, op: op) { src[i] = r; area += cell; thickest = max(thickest, r - s) }
         }
         let reach = op.tool.radius + leave + Ts.res
         let top = ToolDilation.dilate(Grid2D(like: Ts, data: src), kernel: ToolDilation.disc(radius: reach, res: Ts.res))

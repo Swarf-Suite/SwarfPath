@@ -57,6 +57,7 @@ public final class CAMContext: @unchecked Sendable {
     /// Stock left by earlier operations (`priorStock`), keyed by the whole job.
     var priorStockCache: [String: Grid2D?] = [:]
     var holesCache: [Hole]?
+    var edgeExtensionCache: [Float]?
     var cleanupCache: [String: RoughingCleanup?] = [:]
     private var footprintCache: Footprint?
     let lock = NSLock()
@@ -182,12 +183,116 @@ public final class CAMContext: @unchecked Sendable {
     /// How far into an enclosed hole (from its edge) "inside model only" lets this operation's cutter go: a cutter
     /// diameter plus 1 mm, so it can reach across the edge from either side. Only near a wall, though: where the floor
     /// between the hole and the nearest wall is wider than the cutter, it can already reach the edge from the floor.
+    /// How far past an open edge an operation that runs past edges may treat the face as carrying on: far enough for the
+    /// cutter's centre to go 1 mm past the edge.
+    func edgeOverrunBand(_ op: Operation) -> Double { 2 * op.tool.radius + 2 * max(0, op.stockToLeaveXY) + 1 + heights.res }
+
+    /// Lowest Z a cut past an open edge may reach: above the cutout's tabs (on this side), and never within 1 mm of the
+    /// stock bottom, so cutting past the edge of a face that runs down to the bottom never frees the part.
+    func edgeOverrunFloor(_ op: Operation) -> Double {
+        let tabs = job.operations.filter { $0.enabled && $0.kind == .cutout && $0.machiningSide == side && $0.tabs.enabled }
+            .map { $0.tabs.height }.max() ?? 0
+        return max(1, tabs + 1)
+    }
+
+    /// Widest `edgeOverrunBand` computed: covers bits up to 25 mm.
+    static let maxEdgeBand = 28.0
+
+    /// For cells outside the part (not in a hole it surrounds) within `maxEdgeBand` of it: the height of the nearest
+    /// part cell, i.e. each face carried on outwards past its edge. NaN elsewhere. Material there is waste the cutout
+    /// takes anyway, and nothing of the part is lower than the face it continues, so cutting down to it is safe and lets
+    /// a cutter clear the face right to its edge. Computed once per context.
+    var edgeExtension: [Float] {
+        lock.lock()
+        if let e = edgeExtensionCache { lock.unlock(); return e }
+        lock.unlock()
+        let g = heights, sil = silhouetteDistance
+        let W = g.width, H = g.height
+        var out = [Float](repeating: .nan, count: g.data.count)
+        var dist = [Float](repeating: .infinity, count: g.data.count)
+        // Multi-source search outwards from the part's boundary cells, nearest first (Dijkstra on the 8-neighbour grid).
+        var heap: [(Float, Int)] = []
+        func push(_ e: (Float, Int)) {
+            heap.append(e)
+            var c = heap.count - 1
+            while c > 0 { let p = (c - 1) / 2; if heap[p].0 <= heap[c].0 { break }; heap.swapAt(p, c); c = p }
+        }
+        func pop() -> (Float, Int) {
+            let top = heap[0]
+            let last = heap.removeLast()
+            if !heap.isEmpty {
+                heap[0] = last
+                var c = 0
+                while true {
+                    let l = 2 * c + 1, r = l + 1
+                    var m = c
+                    if l < heap.count && heap[l].0 < heap[m].0 { m = l }
+                    if r < heap.count && heap[r].0 < heap[m].0 { m = r }
+                    if m == c { break }
+                    heap.swapAt(m, c); c = m
+                }
+            }
+            return top
+        }
+        let inside = { (i: Int) in g.data[i] > Grid2D.none / 2 }
+        let outer = { (i: Int) in !inside(i) && self.enclosedHoleFill[i].isNaN }
+        let res = Float(g.res), diag = Float(g.res * 2.0.squareRoot())
+        for y in 0..<H {
+            for x in 0..<W {
+                let i = y * W + x
+                guard inside(i) else { continue }
+                var edge = false
+                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    let xx = x + dx, yy = y + dy
+                    if xx >= 0, yy >= 0, xx < W, yy < H, outer(yy * W + xx) { edge = true; break }
+                }
+                if edge { dist[i] = 0; out[i] = g.data[i]; push((0, i)) }
+            }
+        }
+        let band = Float(Self.maxEdgeBand)
+        while !heap.isEmpty {
+            let (d, i) = pop()
+            if d > dist[i] { continue }
+            let x = i % W, y = i / W
+            for dy in -1...1 {
+                for dx in -1...1 where dx != 0 || dy != 0 {
+                    let xx = x + dx, yy = y + dy
+                    guard xx >= 0, yy >= 0, xx < W, yy < H else { continue }
+                    let j = yy * W + xx
+                    guard outer(j), sil.data[j] <= band else { continue }
+                    let nd = d + (dx != 0 && dy != 0 ? diag : res)
+                    if nd < dist[j] { dist[j] = nd; out[j] = out[i]; push((nd, j)) }
+                }
+            }
+        }
+        for i in out.indices where inside(i) { out[i] = .nan }
+        lock.lock(); edgeExtensionCache = out; lock.unlock()
+        return out
+    }
+
     func enclosedHoleBand(_ op: Operation) -> Double { op.tool.diameter + 2 * max(0, op.stockToLeaveXY) + 1 }
 
     /// Whether cell `i` (a cell outside the silhouette, `d` mm from it) is in the band of an enclosed hole that this
     /// operation may use.
     @inline(__always) func inHoleBand(_ i: Int, _ d: Float, band: Float) -> Bool {
         !enclosedHoleFill[i].isNaN && d <= band && enclosedHoleWallDistance[i] <= 2 * band
+    }
+
+    /// For rest and leftover passes: grid cell `i` is outside the part (not in a hole it surrounds) and `op` runs past
+    /// open edges. Stock there is waste the cutout takes, so it never counts as left over, though the cutter may still
+    /// pass over it to reach the part's edge.
+    func isPastOpenEdge(_ i: Int, op: Operation) -> Bool {
+        op.runsPastOpenEdges && op.boundary == .insideSilhouette && silhouetteDistance.data[i] > 0 && enclosedHoleFill[i].isNaN
+    }
+
+    /// True outside the part's open outline, within the band `op` may run past it (see `edgeExtension`).
+    func pastOpenEdge(_ p: V2, op: Operation) -> Bool {
+        let d = silhouetteDistance.sample(p)
+        guard d > 0, Double(d) <= edgeOverrunBand(op) - op.tool.radius else { return false }
+        let c = heights.cellCoord(p)
+        let x = Int(c.x.rounded()), y = Int(c.y.rounded())
+        guard x >= 0, y >= 0, x < heights.width, y < heights.height else { return false }
+        return !edgeExtension[y * heights.width + x].isNaN
     }
 
     /// True inside the silhouette, or in the band of a hole the part surrounds (see `enclosedHoleFill`).
@@ -280,6 +385,9 @@ public final class CAMContext: @unchecked Sendable {
         let top = Float(stockTop)
         // Holes a drilling operation will make: solid at their rim, so passes run straight over them.
         let drilled = drilledHoleFill(op)
+        let edge = op.boundary == .insideSilhouette && op.runsPastOpenEdges ? edgeExtension : nil
+        let edgeBand = Float(edgeOverrunBand(op))
+        let edgeFloor = Float(edgeOverrunFloor(op))
         for y in 0..<g.height {
             for x in 0..<g.width {
                 let i = y * g.width + x
@@ -299,7 +407,14 @@ public final class CAMContext: @unchecked Sendable {
                 case .insideSilhouette:
                     if sil.data[i] > 0 {
                         let f = holes[i]
-                        v = inHoleBand(i, sil.data[i], band: band) ? max(f, floor) + leaveZ : Grid2D.forbid
+                        if inHoleBand(i, sil.data[i], band: band) {
+                            v = max(f, floor) + leaveZ
+                        } else if let edge, sil.data[i] <= edgeBand, !edge[i].isNaN, !outsideStock {
+                            // Past an open edge: the face carried on outwards, so the cutter can hang over the edge.
+                            v = max(edge[i], floor, edgeFloor) + leaveZ
+                        } else {
+                            v = Grid2D.forbid
+                        }
                     }
                 }
                 }
@@ -349,7 +464,7 @@ public final class CAMContext: @unchecked Sendable {
         let conservative = op.kind == .roughing || op.kind == .parallelFinish || op.kind == .waterlineFinish
         let t = op.tool
         let shank = t.hasWideShank ? "|shank\(t.shankDiameter)/\(t.fluteLength)" : ""
-        return "\(conservative)|\(t.kind.cutsFlat ? ToolKind.flat : t.kind)|\(t.diameter)|\(t.cornerRadius)|\(t.vAngle)|\(t.tipDiameter)\(shank)|\(op.stockToLeaveXY)|\(op.stockToLeaveZ)|\(op.boundary)|\(op.boundaryMargin)|\(floorZ(op))|\(regions(for: op).map { "\($0.min)\($0.max)\($0.kind)\(String(describing: $0.protectBelowZ))" })" + drilledHolesKey(op)
+        return "\(conservative)|\(t.kind.cutsFlat ? ToolKind.flat : t.kind)|\(t.diameter)|\(t.cornerRadius)|\(t.vAngle)|\(t.tipDiameter)\(shank)|\(op.stockToLeaveXY)|\(op.stockToLeaveZ)|\(op.boundary)\(op.boundary == .insideSilhouette && op.runsPastOpenEdges ? "+edges\(edgeOverrunFloor(op))" : "")|\(op.boundaryMargin)|\(floorZ(op))|\(regions(for: op).map { "\($0.min)\($0.max)\($0.kind)\(String(describing: $0.protectBelowZ))" })" + drilledHolesKey(op)
     }
 
     /// Tool-tip height field for an operation (cached).

@@ -43,9 +43,10 @@ Rest machining is in (`Rest.swift`): a smaller tool cuts only what a larger one 
 - **Following the simulated stock** is in ("Everything before it", `Leftover.swift`) and is Full Processing's default.
   It simulates every earlier operation each time one changes; on a big job that may get slow in the app. Auto Plan's
   own rest passes still use `restFromOp`.
-- **A slot the pocket bit nearly fits.** The neck's 6.2 mm truss-rod channel is left by the 6 mm flat at Normal
-  quality (0.485 mm grid); Fine clears it. The ball finish then reports it as unreachable. Footprint-refined slot
-  passes, or Auto Plan's smaller flat, would handle it.
+- **Cut a near-fit slot on the machine.** The 6 mm flat now cuts the neck's 6.2 mm truss-rod channel on its centre line
+  (`Slots.swift`) with 0.1 mm either side. Check the real width, and whether bit runout makes it rub or chatter.
+- **Slot passes are flat-bottomed pocket passes only.** A slot that narrows below a ball or bull nose's full width, or a
+  roughing op, still falls back to a smaller bit.
 
 ## Cutout trench
 
@@ -62,6 +63,12 @@ The wide trench is in (`cutout` in Operations.swift, `CutoutTrench` in Job.swift
 Parallel finishes pick their direction from the surface, and roughing leaves enough for the finishes after it
 (`FinishDirection.swift`). Loose ends:
 
+- **Flat or ball for the curve finish.** Full Processing's "Finish (curves)" uses the ball nose. With the edge overrun
+  a 6 mm flat at the same stepover left slightly less on the neck (1136 vs 1187 leftover cells): it follows surfaces
+  that are straight across the passes exactly, but leaves R²/2r in concave coves. Choosing the flat automatically when
+  the curvature runs one way only would suit necks.
+- **Edge overrun on the machine.** Pockets carry on past open edges (`runsPastOpenEdges`). Check the waste it cuts
+  outside the part doesn't weaken the stock where it's clamped.
 - **Finish a neck on the FoxAlien** with a flat end mill along X and check the headstock transition for ridges and
   roughing steps.
 - **Creases and slot walls are left out of the direction choice**, and with rest machining only the leftover material

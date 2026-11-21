@@ -53,6 +53,10 @@ Three targets share one engine:
    (roughing / parallel / waterline) get an extra conservative half-cell max pass. With "inside model only",
    holes the part surrounds (`enclosedHoleFill`) are not forbidden in a band a cutter width inside their edge, near
    walls, filled to the lowest surface around the hole, so pockets can clear floor strips narrower than the cutter.
+   With `Operation.runsPastOpenEdges` (pockets and Full Processing's curve finish default to it), a band past the
+   outline (`edgeOverrunBand`) is filled with the height of the nearest part-edge cell (`edgeExtension`, a Dijkstra out
+   from the silhouette), so faces are cut right to their open edges. It never goes below `edgeOverrunFloor` (the
+   cutouts' tab height + 1 mm), and `isPastOpenEdge` keeps rest and leftover logic from counting that waste as work.
 5. Strategies are `CAMContext` extensions: Operations.swift (facing, pocket+roughing via `clearing`, parallel,
    waterline, cutout with tabs), VCarve.swift, Drill.swift. They read the tool field, build contours (marching
    squares in Contours.swift, Euclidean distance transforms in Grid.swift), and emit `Move`s via `PathBuilder`.
@@ -66,6 +70,9 @@ Three targets share one engine:
    (material above tip + δk must stay `cuttingRadius(δk+1)` away), which is conservative and exact on vertical walls,
    so `refine` only moves a point when the full-radius band binds. Pockets, roughing and waterline use it; V-carve
    takes recess depths from the top face's `Footprint`.
+   Slots the grid says a flat pocket cutter can't enter but the true geometry can (a 6.2 mm channel with a 6 mm bit) get
+   centre-line passes from `narrowSlotPasses` (Slots.swift): a ternary search across the slot for the largest
+   `ToolFootprint.margin`, accepted only where it peaks inside the search (a real pinch).
    `refine` caps each move at two cells and takes an `accept` check (keep-outs, boundary). Anything new that
    produces finished walls should use it too, or parts come out a few tenths undersize. `minZ` clips triangles
    at that height, so sloped and filleted walls give the true cross-section.

@@ -636,6 +636,13 @@ struct OperationInspector: View {
                         ForEach(BoundaryMode.allCases, id: \.self) { Text($0.displayName).tag($0) }
                     }
                     if op.boundary == .silhouette { NumberField(title: "Margin", value: b(\.boundaryMargin), step: 0.5, range: 0...200) }
+                    if op.boundary == .insideSilhouette {
+                        Toggle("Run past open edges", isOn: b(\.runsPastOpenEdges))
+                        if op.runsPastOpenEdges {
+                            Text("Where a face ends at the part's outline, the cutter carries on over the edge so the face is cut right to it. It never goes below the face, and stays above the cutout's tabs.")
+                                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                     Toggle("Custom bottom height", isOn: Binding(get: { op.floorZ != nil }, set: { on in b(\.floorZ).wrappedValue = on ? (model.placed?.modelBounds.min.z ?? 0) : nil }))
                     if let f = op.floorZ { NumberField(title: "Lowest Z", value: Binding(get: { f }, set: { b(\.floorZ).wrappedValue = $0 }), step: 0.5) }
                     else if model.placed?.modelBounds.min.z ?? 1 < 0.01 && op.kind != .pocket {

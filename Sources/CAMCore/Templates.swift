@@ -183,8 +183,9 @@ public enum JobTemplates {
                 // The pocket's levels leave steps on the curved parts; the ball takes only those, along the curve.
                 var f = Operation(kind: .parallelFinish, tool: ball, material: material)
                 f.name = "Finish (curves)"
-                // On the part only: the cutout takes the stock around it.
+                // On the part, and past its open edges so the curve is finished right to them; the cutout takes the rest.
                 f.boundary = .insideSilhouette
+                f.runsPastOpenEdges = true
                 f.rasterAngle = 45
                 finishOps.append(f)
             }
