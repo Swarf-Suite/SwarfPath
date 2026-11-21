@@ -171,20 +171,21 @@ extension CAMContext {
         }
 
         var b = builder(op)
-        peckHoles(order.map { ($0.center, holeBottom($0, op)) }, op: op, b: &b, progress: progress)
+        peckHoles(order.map { ($0.center, holeBottom($0, op)) }, tops: order.map { drillStart(op, at: $0.center) }, op: op, b: &b, progress: progress)
         var tp = makeToolpath(op, b)
         tp.warnings = warnings
         return tp
     }
 
-    /// Pecks each hole in turn from the stock top down to its bottom, then retracts to the safe height.
-    func peckHoles(_ holes: [(V2, Double)], op: Operation, b: inout PathBuilder, progress: ProgressHandler?) {
+    /// Pecks each hole in turn from the top of the material (`tops`, default the stock top) down to its bottom, then
+    /// retracts to the safe height.
+    func peckHoles(_ holes: [(V2, Double)], tops: [Double]? = nil, op: Operation, b: inout PathBuilder, progress: ProgressHandler?) {
         let s = op.drillSettings
-        let top = stockTop
-        let rPlane = min(safeZ, top + 1)
         let peck = max(0.1, op.cutting.stepdown)
         let lift = max(0.1, s.chipBreakLift)
         for (k, (c, bottom)) in holes.enumerated() {
+            let top = tops.map { $0[k] } ?? stockTop
+            let rPlane = min(safeZ, top + 1)
             if b.pos.z < safeZ - 1e-9 { b.retract() }
             b.rapid(V3(c.x, c.y, safeZ))
             b.rapid(V3(c.x, c.y, rPlane))

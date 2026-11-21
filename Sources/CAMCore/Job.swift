@@ -218,6 +218,21 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
         get { let v = restExtraStock ?? 0; return v.isFinite ? max(0, v) : 0 }
         set { restExtraStock = newValue > 0 ? newValue : nil }
     }
+    /// Only cut what the operations before it (same side) left: they are simulated, and tool positions whose cutter
+    /// would touch none of the stock they leave are skipped. A drill starts its pecks at the surface they leave. An
+    /// explicit reference (`restFromOp`, `restFrom`) takes precedence. nil = off (older projects).
+    public var restFromEarlier: Bool? = nil
+    public var cutsLeftoverOnly: Bool {
+        get { restFromEarlier ?? false }
+        set { restFromEarlier = newValue ? true : nil }
+    }
+    /// Machine straight over round holes that a drilling operation in the job cuts, as if they were solid at their rim,
+    /// instead of clearing around them. nil = off (older projects).
+    public var leaveHolesToDrill: Bool? = nil
+    public var ignoresDrilledHoles: Bool {
+        get { leaveHolesToDrill ?? false }
+        set { leaveHolesToDrill = newValue ? true : nil }
+    }
     /// Which face this operation machines in a two-sided job. nil = side A. Optional so older projects still open.
     public var side: MachiningSide? = nil
     public var machiningSide: MachiningSide {

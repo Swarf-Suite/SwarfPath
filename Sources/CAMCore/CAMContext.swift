@@ -22,7 +22,14 @@ public typealias ProgressHandler = @Sendable (Double) -> Void
 /// Prepared geometry shared by every operation of a job.
 public final class CAMContext: @unchecked Sendable {
     public let placed: PlacedModel
-    public let job: Job
+    /// The job. Its operations can be replaced (`updateOperations`) without rebuilding the geometry, so operations that
+    /// depend on others (rest machining, roughing held up for its finishes) always see their current settings.
+    public var job: Job {
+        jobLock.lock(); defer { jobLock.unlock() }
+        return _job
+    }
+    private var _job: Job
+    private let jobLock = NSLock()
     /// Model top surface; `Grid2D.none` where there is no model.
     public let heights: Grid2D
     /// Distance (mm) from each cell to the model silhouette (0 inside).
@@ -45,6 +52,11 @@ public final class CAMContext: @unchecked Sendable {
 
     private var fieldCache: [String: Grid2D] = [:]
     var restCache: [String: RestField] = [:]
+    /// Toolpaths of earlier operations, generated to simulate what they leave (`priorStock`), keyed by the whole job.
+    var toolpathCache: [String: Toolpath] = [:]
+    /// Stock left by earlier operations (`priorStock`), keyed by the whole job.
+    var priorStockCache: [String: Grid2D?] = [:]
+    var holesCache: [Hole]?
     var cleanupCache: [String: RoughingCleanup?] = [:]
     private var footprintCache: Footprint?
     let lock = NSLock()
@@ -59,6 +71,20 @@ public final class CAMContext: @unchecked Sendable {
         let b = makeSideB()
         lock.lock(); sideBCache = b; lock.unlock()
         return b
+    }
+
+    /// Replaces the job's operations (the app edits them without rebuilding the context). Side B follows.
+    public func updateOperations(_ operations: [Operation]) {
+        jobLock.lock()
+        let changed = _job.operations != operations
+        _job.operations = operations
+        jobLock.unlock()
+        lock.lock()
+        // Kept toolpaths and simulations are for one set of operations; don't let edits pile them up.
+        if changed { toolpathCache = [:]; priorStockCache = [:]; restCache = restCache.filter { !$0.key.contains("#left#") } }
+        let b = sideBCache
+        lock.unlock()
+        if let b, b !== self { b.updateOperations(operations) }
     }
 
     /// Exact model footprint for sub-cell accurate outlines (built on first use).
@@ -81,7 +107,7 @@ public final class CAMContext: @unchecked Sendable {
     }
 
     init(placed: PlacedModel, job: Job, side: MachiningSide, protection: FrameProtection?) {
-        self.job = job
+        self._job = job
         self.placed = placed
         self.side = side
         self.protection = protection
@@ -252,6 +278,8 @@ public final class CAMContext: @unchecked Sendable {
         let holes = enclosedHoleFill
         let band = Float(enclosedHoleBand(op))
         let top = Float(stockTop)
+        // Holes a drilling operation will make: solid at their rim, so passes run straight over them.
+        let drilled = drilledHoleFill(op)
         for y in 0..<g.height {
             for x in 0..<g.width {
                 let i = y * g.width + x
@@ -259,6 +287,10 @@ public final class CAMContext: @unchecked Sendable {
                 var v = max(g.data[i], floor) + leaveZ
                 // Outside the stock (expanded by the cutter radius) there is nothing to reach.
                 let outsideStock = p.x < -R - res || p.y < -R - res || p.x > s.x + R + res || p.y > s.y + R + res
+                if let drilled, !drilled[i].isNaN {
+                    v = max(max(g.data[i], drilled[i]), floor) + leaveZ
+                    if outsideStock { v = Grid2D.forbid }
+                } else {
                 switch op.boundary {
                 case .stock:
                     if outsideStock { v = Grid2D.forbid }
@@ -269,6 +301,7 @@ public final class CAMContext: @unchecked Sendable {
                         let f = holes[i]
                         v = inHoleBand(i, sil.data[i], band: band) ? max(f, floor) + leaveZ : Grid2D.forbid
                     }
+                }
                 }
                 if !onlyRegions.isEmpty && !onlyRegions.contains(where: { $0.contains(p, inflate: R) }) { v = Grid2D.forbid }
                 for r in keepOuts where r.contains(p, inflate: res) {
@@ -316,7 +349,7 @@ public final class CAMContext: @unchecked Sendable {
         let conservative = op.kind == .roughing || op.kind == .parallelFinish || op.kind == .waterlineFinish
         let t = op.tool
         let shank = t.hasWideShank ? "|shank\(t.shankDiameter)/\(t.fluteLength)" : ""
-        return "\(conservative)|\(t.kind.cutsFlat ? ToolKind.flat : t.kind)|\(t.diameter)|\(t.cornerRadius)|\(t.vAngle)|\(t.tipDiameter)\(shank)|\(op.stockToLeaveXY)|\(op.stockToLeaveZ)|\(op.boundary)|\(op.boundaryMargin)|\(floorZ(op))|\(regions(for: op).map { "\($0.min)\($0.max)\($0.kind)\(String(describing: $0.protectBelowZ))" })"
+        return "\(conservative)|\(t.kind.cutsFlat ? ToolKind.flat : t.kind)|\(t.diameter)|\(t.cornerRadius)|\(t.vAngle)|\(t.tipDiameter)\(shank)|\(op.stockToLeaveXY)|\(op.stockToLeaveZ)|\(op.boundary)|\(op.boundaryMargin)|\(floorZ(op))|\(regions(for: op).map { "\($0.min)\($0.max)\($0.kind)\(String(describing: $0.protectBelowZ))" })" + drilledHolesKey(op)
     }
 
     /// Tool-tip height field for an operation (cached).
@@ -418,6 +451,11 @@ public final class CAMContext: @unchecked Sendable {
             throw CAMError.invalidSettings("\(op.name): \(op.kind.displayName) can't be used on side B. The part is cut out from side A.")
         }
         try validate(op)
+        // Operations that cut only what earlier ones left generate those earlier ones too: do each only once.
+        let cacheKey = generationKey(op)
+        lock.lock()
+        if let tp = toolpathCache[cacheKey] { lock.unlock(); progress?(1); return tp }
+        lock.unlock()
         let start = V3(startXY.x, startXY.y, safeZ)
         var tp: Toolpath
         switch op.kind {
@@ -469,6 +507,7 @@ public final class CAMContext: @unchecked Sendable {
         if let w = restWarning(op) { tp.warnings.append(w) }
         if let w = hogSkinWarning(op) { tp.warnings.append(w) }
         if let w = depthWarning(op, depth: stockTop - deepest) { tp.warnings.append(w) }
+        lock.lock(); toolpathCache[cacheKey] = tp; lock.unlock()
         progress?(1)
         return tp
     }

@@ -68,6 +68,7 @@ extension CAMContext {
             reasons[op.id] = switch op.kind {
             case .facing: "The biggest flat end mill, for the fewest passes."
             case .dowelHoles: "Dowel holes use the flat nearest 6 mm."
+            case .drill: String(format: "Makes the holes their own size (Ø%g mm)%@.", op.tool.diameter, op.tool.kind == .drill ? "" : "; the library has no drill that size")
             case .cutout where op.tool.id == hog?.id: "The hogging bit takes the bulk of the slot."
             case .cutout: String(format: "Reaches through the stock (%.1f mm) and is nearest 6 mm.", cutDepth)
             case .parallelFinish, .waterlineFinish: String(format: "The biggest ball nose that reaches %.1f mm deep: the smoothest finish for the time.", clearDepth)

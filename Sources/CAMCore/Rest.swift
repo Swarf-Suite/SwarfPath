@@ -24,6 +24,9 @@ public struct RestField: Sendable {
     /// Thickest such material (mm).
     public let unreachableDepth: Double
 
+    /// The leftover material itself: its top where there is some, `Grid2D.none` elsewhere (not spread by the cutter).
+    var material: Grid2D? = nil
+
     /// True where the cutter would touch leftover material.
     public func touches(_ p: V2) -> Bool { materialTop.nearest(p) > Grid2D.none / 2 }
 }
@@ -67,6 +70,8 @@ extension CAMContext {
 
     /// The leftover material for a rest-machining operation (nil when it has no reference). Cached.
     public func restField(_ op: Operation) -> RestField? {
+        // No explicit reference: the stock the operations before it leave, when it cuts only that.
+        if op.kind.supportsRest && op.cutsLeftoverOnly && op.restFromOp == nil && op.restFrom == nil { return leftoverField(op) }
         guard op.kind.supportsRest, let refOp = restReference(op), refOp.kind.supportsRest else { return nil }
         let ref = refOp.tool
         let key = fieldKey(op) + "#rest#" + fieldKey(refOp) + "\(ref.shankDiameter)/\(ref.fluteLength)"
@@ -101,7 +106,8 @@ extension CAMContext {
         // Positions whose cutter (plus a cell, so the edge of the material is always taken) touches leftover material.
         let reach = op.tool.radius + leave + Ts.res
         let top = ToolDilation.dilate(Grid2D(like: Ts, data: src), kernel: ToolDilation.disc(radius: reach, res: Ts.res))
-        let field = RestField(materialTop: top, leftoverArea: area, maxThickness: Double(thickest), unreachableArea: unreachable, unreachableDepth: Double(unreachableDepth))
+        let field = RestField(materialTop: top, leftoverArea: area, maxThickness: Double(thickest), unreachableArea: unreachable, unreachableDepth: Double(unreachableDepth),
+                              material: Grid2D(like: Ts, data: src))
         lock.lock(); restCache[key] = field; lock.unlock()
         return field
     }
@@ -110,6 +116,9 @@ extension CAMContext {
     func restWarning(_ op: Operation) -> String? {
         if op.restFromOp != nil && restReference(op) == nil {
             return "The operation this one follows is missing, turned off, later in the job, or on the other side; this one cuts everything instead."
+        }
+        if op.cutsLeftoverOnly && op.restFromOp == nil && op.restFrom == nil, let rf = restField(op), rf.leftoverArea < 0.5 {
+            return "Nothing left for this tool: the operations before it already cut everything it can reach."
         }
         guard let refOp = restReference(op), let rf = restField(op) else { return nil }
         let ref = refOp.tool

@@ -19,6 +19,8 @@ swift build -c release && .build/release/swarf-cli Tests/Fixtures/dome_relief.st
 .build/release/swarf-cli model.stl --png preview.png [--png-no-paths]   # top view: gouges red, leftover blue
 .build/release/swarf-cli ~/Desktop/Project.swarf --out out --simulate   # reproduce a user's project exactly
 .build/release/swarf-cli Project.swarf --png-underside back.png         # side B result: leftover blue, gouges red
+.build/release/swarf-cli --help                        # all flags: --machine, --ops, --flip, --rest, --keepout, --test-cut, ...
+.build/release/swarf-cli --list-machines
 scripts/make-guide.sh                                  # docs/guide/user-guide.html -> docs/Swarf-User-Guide.pdf (headless Chrome)
 ```
 
@@ -80,6 +82,15 @@ Three targets share one engine:
    a time; parallel and waterline just skip positions that touch nothing. A shank wider than the cutter
    (`Tool.hasWideShank`) is kept off the model above the flutes in `toolField` (a disc dilation minus the flute
    length), so its diameter and flute length are in `fieldKey`.
+   "Only what's left" (Leftover.swift): `Operation.cutsLeftoverOnly` with no rest source makes `restField` use
+   `leftoverField`, where the reference surface is `priorStock(op)`: the enabled earlier operations on the same side,
+   generated and run through `StockSimulator`. A drill with it starts pecking at that surface (`drillStart`).
+   `ignoresDrilledHoles` fills holes an enabled drill on the same side will make (`drilledHoleFill`, in `obstacleHeights`
+   and `fieldKey`), so passes run straight over them. Both depend on the whole operation list: `generate` caches
+   toolpaths by `generationKey` (all operations + this one), the app calls `CAMContext.updateOperations` before each
+   run (the context outlives edits to the list), and its `opKey` includes every operation for these.
+   Full Processing (`JobTemplates.linkUp`) turns both on, adds drilling (`drilling`) for holes a library bit fits, and
+   a ball-nose "Finish (curves)" inside the silhouette when the pocketed part has curved patches.
    Feeds and speeds (FeedsCalculator.swift): a chip-load table by diameter for MDF, scaled by material, bit type and
    flute style and kept inside `FeedsAndSpeeds.window` (what the warnings accept); chip thinning; machine max feed caps
    the feed and slows the spindle; a shallow ball or bull nose gets axial thinning (`effectiveDiameter`), and
@@ -92,7 +103,15 @@ Three targets share one engine:
    `OperationKind`, rejects non-finite moves, and appends warnings (feeds, depth vs flutes or collet stick-out,
    hogging skins, test-cut, below stock). `JobTemplates.fullProcessing` (Templates.swift) picks operations from model traits;
    `JobTemplates.orderedForFewestToolChanges` (Ordering.swift) regroups a job by tool under fixed ordering rules (the
-   sidebar's "Fewer Bit Changes").
+   sidebar's "Fewer Bit Changes"). `CAMContext.autoPlan(library:material:)` (AutoPlan.swift) is Full Processing with
+   bits chosen from the tool library (largest that reach, capped at `autoPlanMaxDiameter`), plus rest passes with
+   smaller bits (down to `autoPlanMinDiameter`) only where real material is left, then ordered for fewest changes.
+   Areas: a `Region` with `isArea` is ignored by every operation except those whose `Operation.areaID` names it, which
+   machine only inside it (like `machineOnly`). `validate` refuses an operation whose area is missing, off, or on the
+   other side, rather than letting a small bit machine the whole part. Simulation keep-out checks skip areas.
+   Parallel finish direction (FinishDirection.swift): with `autoRaster` on, `rasterChoice(op)` takes the angle from
+   the surface's principal curvature (passes along the direction it curves most, snapped to X/Y when close);
+   `rasterAngle` is the fallback where there's no clear direction (a dome).
 7. Two-sided jobs (Flip.swift): `Job.flip` turns them on and `Operation.side` (Optional) puts an operation on side B.
    Side B uses its own `CAMContext` (`makeSideB`/`sideB`), built from `PlacedModel.rolledAboutX()`: (x, y, z) →
    (x, W − y, T − z), so side-B toolpaths are in the machine's coordinates after the flip. `FrameProtection` keeps
@@ -107,7 +126,9 @@ Three targets share one engine:
 9. `PostProcessor` (Post.swift) writes the files. Machine dialects are data: a `MachineProfile` in
    `MachineProfile.builtIn`. The WorkBee profile splits output into one file per tool. `ArcFitter` turns
    linear moves into G2/G3. Names and comments are sanitised to ASCII so they can't inject G-code, and
-   file names stay inside the chosen folder.
+   file names stay inside the chosen folder. `GCodeHub` (GCodeHub.swift) sends the files to a KerfLine hub (the
+   GRBL sender, github.com/mouldiwarp/kerfline, localhost by default) as one group; the CLI's `--send [address]`
+   does the same.
 
 ### App
 
@@ -140,4 +161,6 @@ Three targets share one engine:
 
 The user often has `build/Swarf.app` open with unsaved work. Never `killall`/`pkill` Swarf. Launch your own
 copy, track its PID, and kill only that PID. Take screenshots with `scripts/snap.sh <pid> <out.png>`, which
-captures by PID rather than window title.
+captures by PID rather than window title. Launch with `-ApplePersistenceIgnoreState YES` (plus `-SwarfOpen <copy>`,
+`-SwarfSkipDisclaimer YES`, `-SwarfDumpState <file>`): without it your copy restores the user's open documents and can
+autosave over them. Work on a copy of a user's `.swarf`, never the original.

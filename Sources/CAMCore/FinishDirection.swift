@@ -61,11 +61,18 @@ extension CAMContext {
                 @inline(__always) func ok(_ v: Float) -> Bool { v > Grid2D.none / 2 && v < Grid2D.forbidThreshold }
                 guard ok(c), ok(xm), ok(xp), ok(ym), ok(yp), ok(pp), ok(pm), ok(mp), ok(mm) else { continue }
                 let p = h.world(x, y)
-                if let rest, !rest.touches(p) { continue }
+                // Rest machining: the shape of the material actually left decides, not the finished areas around it.
+                if let rest {
+                    if let m = rest.material { if !(m.data[i] > Grid2D.none / 2) { continue } } else if !rest.touches(p) { continue }
+                }
                 if !rs.isEmpty && isForbiddenXY(p, z: Double(c), op: op, inflate: 0) { continue }
                 let gx = Double(xp - xm) / (2 * d), gy = Double(yp - ym) / (2 * d)
                 let g2 = gx * gx + gy * gy
                 guard g2 <= maxGrad * maxGrad else { continue }
+                // Next to a wall too steep for a pass (a slot's side) the central difference averages the wall into a
+                // gentle curve: leave out cells where either side alone is that steep.
+                let steep = Float(maxGrad * d)
+                if abs(xp - c) > steep || abs(c - xm) > steep || abs(yp - c) > steep || abs(c - ym) > steep { continue }
                 cells += 1
                 // Hessian, then curvature (second derivative along the surface, not just in plan).
                 let n = pow(1 + g2, 1.5)
@@ -74,6 +81,8 @@ extension CAMContext {
                 let b = Double(pp - pm - mp + mm) / (4 * d * d) / n
                 let mean = (a + cc) / 2, r = ((a - cc) * (a - cc) / 4 + b * b).squareRoot()
                 let l1 = mean + r, l2 = mean - r
+                // Far tighter than the cutter: a crease or an edge (a slot's lip), not a surface it follows.
+                if max(abs(l1), abs(l2)) > 3 * cap { continue }
                 let w = min(cap, abs(abs(l1) - abs(l2)))
                 guard w > 1e-4 else { continue }
                 curved += 1
@@ -177,7 +186,7 @@ extension CAMContext {
     /// finish that follows this roughing would otherwise depend on itself.
     func finishSurface(_ op: Operation) -> Grid2D {
         var f = op
-        f.restFrom = nil; f.restFromOp = nil; f.restExtraStock = nil
+        f.restFrom = nil; f.restFromOp = nil; f.restExtraStock = nil; f.restFromEarlier = nil
         var out = Grid2D(like: heights, data: [Float](repeating: Grid2D.none, count: heights.data.count))
         guard let tp = try? generate(f) else { return out }
         var sim = StockSimulator(stockSize: placed.stockSize, resolution: res)

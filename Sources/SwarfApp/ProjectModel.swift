@@ -912,6 +912,11 @@ final class ProjectModel: ObservableObject {
                 own += "#fin\(i)|" + String(decoding: (try? enc.encode(g)) ?? Data(), as: UTF8.self)
             }
         }
+        // Cutting only what's left, or running over holes a drill makes, depends on every operation and the order.
+        if op.cutsLeftoverOnly || op.ignoresDrilledHoles {
+            let all = job.operations.map { o -> CAMCore.Operation in var c = o; c.name = ""; return c }
+            own += "#all|" + String(decoding: (try? enc.encode(all)) ?? Data(), as: UTF8.self)
+        }
         return op.machiningSide == .b && op.kind != .dowelHoles ? own + "#B" + Self.cutoutsKey(job) : own
     }
 
@@ -987,6 +992,9 @@ final class ProjectModel: ObservableObject {
                 contextBKey = bKey
             }
         }
+        // The context outlives edits to the operation list; operations that read the others need the current one.
+        ctx.updateOperations(j.operations)
+        contextB?.updateOperations(j.operations)
         var out: [Toolpath] = []
         var newStatus = status
         for op in j.operations {

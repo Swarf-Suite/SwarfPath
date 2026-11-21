@@ -674,8 +674,9 @@ struct OperationInspector: View {
         Section(isCutout ? "Follows" : "Rest machining") {
             // "none", "op:<id>" (an earlier operation, exactly as set there) or "tool" (a larger tool, older projects).
             Picker(isCutout ? "Finishes after" : "Only cut what was left by", selection: Binding(get: {
-                op.restFromOp.map { "op:\($0.uuidString)" } ?? (op.restFrom != nil ? "tool" : "none")
+                op.restFromOp.map { "op:\($0.uuidString)" } ?? (op.restFrom != nil ? "tool" : !isCutout && op.cutsLeftoverOnly ? "earlier" : "none")
             }, set: { tag in
+                b(\.cutsLeftoverOnly).wrappedValue = tag == "earlier"
                 if tag.hasPrefix("op:"), let o = opChoices.first(where: { "op:\($0.id.uuidString)" == tag }) {
                     b(\.restFromOp).wrappedValue = o.id
                     b(\.restFrom).wrappedValue = o.tool
@@ -691,6 +692,7 @@ struct OperationInspector: View {
                 }
             })) {
                 Text(isCutout ? "Nothing: cut the full depth" : "Nothing: cut everything").tag("none")
+                if !isCutout { Text("Everything before it").tag("earlier") }
                 if let r = op.restFromOp, !opChoices.contains(where: { $0.id == r }) { Text("A missing operation").tag("op:\(r.uuidString)") }
                 ForEach(opChoices) { o in Text("\(o.name) · T\(o.tool.number) Ø\(String(format: "%g", o.tool.diameter))").tag("op:\(o.id.uuidString)") }
                 if !isCutout && (op.restFromOp == nil && op.restFrom != nil || !choices.isEmpty) { Text("A larger tool…").tag("tool") }
@@ -705,6 +707,9 @@ struct OperationInspector: View {
                     Label("The operation this followed is gone, off, later in the list or on the other side. Choose another.", systemImage: "exclamationmark.triangle")
                         .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
                 }
+            } else if !isCutout && op.cutsLeftoverOnly {
+                Text("Cuts only the material the enabled operations above it on this side leave, worked out by simulating them. Reorder or change them and this follows.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             } else if let r = op.restFrom, !isCutout {
                 Picker("Larger tool", selection: Binding(get: { r.id }, set: { newID in
                     if let t = choices.first(where: { $0.id == newID }) {
@@ -721,6 +726,13 @@ struct OperationInspector: View {
             } else if opChoices.isEmpty && choices.isEmpty {
                 Text(isCutout ? "No earlier cutout to follow." : "No earlier operation or larger tool to follow.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            if !isCutout {
+                Toggle("Run over holes a drilling operation makes", isOn: b(\.ignoresDrilledHoles))
+                if op.ignoresDrilledHoles {
+                    Text("Holes an enabled drilling operation on this side will make are treated as solid, so passes go straight across them instead of around.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
             }
             if op.tool.hasWideShank {
                 Text(String(format: "This bit's Ø%g mm shank is wider than its cutter, so beside a wall it only reaches %g mm (its flute length) below the top of the wall. Anything deeper is left, with a warning.", op.tool.shankDiameter, op.tool.fluteLength))

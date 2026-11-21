@@ -40,9 +40,12 @@ Rest machining is in (`Rest.swift`): a smaller tool cuts only what a larger one 
 - **Uncut stock and the shank.** The shank is kept off the model, but not off leftover material that this tool itself
   can't reach. That needs leftover deep beside a wall within a shank radius of where the bit cuts; it hasn't come up in
   tests.
-- **Following the simulated stock.** A rest pass that follows an operation models that operation's own settings
-  exactly, but not what earlier passes before it removed. Following the simulated stock would cover chains of three or
-  more tools.
+- **Following the simulated stock** is in ("Everything before it", `Leftover.swift`) and is Full Processing's default.
+  It simulates every earlier operation each time one changes; on a big job that may get slow in the app. Auto Plan's
+  own rest passes still use `restFromOp`.
+- **A slot the pocket bit nearly fits.** The neck's 6.2 mm truss-rod channel is left by the 6 mm flat at Normal
+  quality (0.485 mm grid); Fine clears it. The ball finish then reports it as unreachable. Footprint-refined slot
+  passes, or Auto Plan's smaller flat, would handle it.
 
 ## Cutout trench
 
@@ -61,6 +64,8 @@ Parallel finishes pick their direction from the surface, and roughing leaves eno
 
 - **Finish a neck on the FoxAlien** with a flat end mill along X and check the headstock transition for ridges and
   roughing steps.
+- **Creases and slot walls are left out of the direction choice**, and with rest machining only the leftover material
+  itself counts. Check a few more parts (bodies with carves) that the choice is still right.
 - **One direction per operation.** A part with several differently curved areas gets the weighted average direction.
   Areas (⌥⌘A) now give a region its own finishing operation and direction, by hand; picking the areas
   automatically would suit bodies with carves running different ways.
