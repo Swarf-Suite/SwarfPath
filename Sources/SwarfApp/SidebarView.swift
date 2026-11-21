@@ -126,6 +126,10 @@ struct SidebarView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("No operations yet.").font(.caption).foregroundStyle(.secondary)
                         Button {
+                            model.startAutoPlan()
+                        } label: { Label(model.autoPlanning ? "Planning…" : "Auto Plan from Tool Library", systemImage: "sparkles") }
+                            .disabled(model.placed == nil || model.autoPlanning)
+                        Button {
                             model.addFullProcessing()
                         } label: { Label("Full Processing", systemImage: "wand.and.stars") }
                             .disabled(model.placed == nil)
@@ -136,6 +140,8 @@ struct SidebarView: View {
                     Text(model.job.activeFlip == nil ? "Operations" : "Add operations")
                     Spacer()
                     Menu {
+                        Button { model.startAutoPlan() } label: { Label("Auto Plan from Tool Library…", systemImage: "sparkles") }
+                            .disabled(model.placed == nil || model.autoPlanning)
                         Button { model.addFullProcessing() } label: { Label("Full Processing (auto)", systemImage: "wand.and.stars") }
                         Button { model.addRestClearing() } label: { Label("Rest Clearing (smaller bit)", systemImage: "arrow.down.right.and.arrow.up.left") }
                             .disabled(model.restSourceOperation == nil)

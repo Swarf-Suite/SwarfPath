@@ -202,6 +202,14 @@ open build/Swarf.app</pre>
   <p>An operation is one machining step with one tool. Click <b>Full Processing</b> in the sidebar to let Swarf look at the model and add what it needs:
     facing if the model sits below the stock top, roughing and finishing for curved tops, pockets for cavities, and a cutout with tabs.
     Or click <b>+</b> to add operations yourself. Operations run in list order. Drag them to reorder.</p>
+  <p><b>Auto Plan from Tool Library</b> (sidebar, the <b>+</b> menu, or ⇧⌘A) does the same job with bits chosen from your tool library instead of the ones nearest 6&nbsp;mm.
+    It uses the biggest flat end mill (up to 1/2") that reaches the deepest point of the part for clearing, the biggest ball nose that reaches for finishing,
+    and a flat that reaches through the stock for the cutout. Then it adds smaller bits only where they're needed: a rest pass with a smaller flat where the
+    clearing bit leaves material in corners and slots (up to two, no smaller than 1.5&nbsp;mm), and a smaller ball nose where the finish can't follow tight
+    concave curves. It orders everything for the fewest bit changes. Nothing changes until you've seen the plan: a sheet lists each bit in the order you'll fit it,
+    the operations it runs and why it was chosen, the number of bit changes and the estimated run time, and any warnings (no bit long enough, or a slot narrower than
+    your smallest bit). <b>Use This Plan</b> replaces the job's operations, except those limited to areas, which it keeps. Undo with ⌘Z.
+    Each bit becomes its own G-code file; KerfLine runs the files as a group and stops between them for the bit change and Z re-probe.</p>
   <p><b>Fewer Bit Changes</b>, under the operation list, reorders the operations so each bit does all its work in one go. A new G-code file starts at every bit change,
     so this also means fewer files, fewer stops to change bits and re-zero Z, and files you can run on different days. The button shows the bit changes now and after
     (“3 → 1”), and greys out when the order is already the best it finds. It never breaks the orders that matter: dowel holes, side A and side B stay in sequence,

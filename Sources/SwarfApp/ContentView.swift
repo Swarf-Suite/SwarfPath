@@ -77,6 +77,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $model.showExport) { ExportView(model: model) }
         .sheet(item: $model.areaOperationRequest) { req in AreaOperationSheet(model: model, areaID: req.id) }
+        .sheet(item: $model.autoPlanProposal) { p in AutoPlanSheet(model: model, proposal: p) }
         .alert("Error", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK") { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }

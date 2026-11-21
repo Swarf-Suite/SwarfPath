@@ -39,6 +39,11 @@ more, with a post-processor for each popular hobby machine.
 - **Build the toolpaths.** One click on *Full Processing* analyses the model and adds the operations
   it needs, or you can add them one at a time: facing, pockets, 3D roughing and finishing, V-carving,
   peck drilling and cutouts with holding tabs.
+- **Plan from your own bits.** *Auto Plan from Tool Library* (⇧⌘A) picks the bits for the part from your
+  tool library: the biggest flat end mill and ball nose that reach deep enough, then smaller bits only where
+  the bigger ones leave material in corners, slots or tight curves. It shows the bits in order, why each was
+  chosen, the bit changes and the run time before changing anything. Each bit is its own G-code file, so
+  KerfLine runs them in order with a bit change between them.
 - **Machine both sides** of a part, such as a guitar body with a carved top and control cavities in the
   back. Swarf drills dowel holes through the stock into the spoilboard, machines and cuts out side A,
   then machines side B after you roll the stock over onto dowels. Each step is exported as its own file.
@@ -86,7 +91,7 @@ swift test -c release
 2. **Model & Orientation**: make sure the face you want to machine points up.
 3. **Stock & Work Zero**: check the stock size, the material and where you'll zero the machine.
 4. **Machine & Output**: choose your machine or controller. Any GRBL machine can start from the generic GRBL profile.
-5. **Operations**: click **Full Processing**, or **+** to add operations yourself. Select an
+5. **Operations**: click **Auto Plan from Tool Library** or **Full Processing**, or **+** to add operations yourself. Select an
    operation to edit its tool, feeds and settings in the inspector on the right.
 6. **Simulate** (⌘R): check for red gouges, blue leftover stock and keep-out warnings.
 7. **Export G-code** (⌘E). Machines without a tool changer get one file per tool. Zero XY on the corner shown,

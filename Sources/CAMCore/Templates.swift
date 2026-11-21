@@ -25,14 +25,15 @@ public enum JobTemplates {
 
     /// "Full processing": facing → roughing → finishing → cutout with tabs. On a two-sided job: dowel holes, then
     /// side A as above, then side B's pockets or 3D carving chosen from the underside.
-    public static func fullProcessing(_ ctx: CAMContext, library: ToolLibrary, material: Material) -> [Operation] {
-        let side = singleSide(ctx, library: library, material: material)
+    public static func fullProcessing(_ ctx: CAMContext, library: ToolLibrary, material: Material, bits: Bits? = nil) -> [Operation] {
+        let bits = bits ?? Bits(library)
+        let side = singleSide(ctx, bits: bits, material: material)
         guard ctx.job.activeFlip != nil else { return side }
         let flat6 = library.closest(kind: .flat, diameter: 6) ?? ToolLibrary.starter.tools[0]
         var dowels = Operation(kind: .dowelHoles, tool: flat6, material: material)
         dowels.name = "Dowel holes"
         let b = ctx.makeSideB()
-        var back = singleSide(b, library: library, material: material).filter { $0.kind.allowedOnSideB }
+        var back = singleSide(b, bits: bits, material: material).filter { $0.kind.allowedOnSideB }
         for i in back.indices {
             back[i].machiningSide = .b
             back[i].name += " (side B)"
@@ -87,13 +88,28 @@ public enum JobTemplates {
         return fin
     }
 
-    static func singleSide(_ ctx: CAMContext, library: ToolLibrary, material: Material) -> [Operation] {
+    /// The bits a template uses: the flat end mill for clearing, facing and the cutout, the ball nose for 3D finishing,
+    /// and an optional hogging bit that does the bulk of the clearing first.
+    public struct Bits: Sendable, Equatable {
+        public var flat: Tool
+        public var ball: Tool
+        public var hog: Tool?
+        public var cutout: Tool
+        public init(flat: Tool, ball: Tool, hog: Tool?, cutout: Tool? = nil) {
+            self.flat = flat; self.ball = ball; self.hog = hog; self.cutout = cutout ?? flat
+        }
+        /// The library's bits nearest 6 mm, as the Full Processing template has always used.
+        public init(_ library: ToolLibrary) {
+            let flat6 = library.closest(kind: .flat, diameter: 6) ?? ToolLibrary.starter.tools[0]
+            self.init(flat: flat6, ball: library.closest(kind: .ball, diameter: 6) ?? flat6,
+                      hog: library.closest(kind: .roughing, diameter: 6))
+        }
+    }
+
+    static func singleSide(_ ctx: CAMContext, bits: Bits, material: Material) -> [Operation] {
         let t = traits(ctx)
         var ops: [Operation] = []
-        let flat6 = library.closest(kind: .flat, diameter: 6) ?? ToolLibrary.starter.tools[0]
-        let ball = library.closest(kind: .ball, diameter: 6) ?? flat6
-        // A hogging bit, when the library has one, does the bulk of the clearing.
-        let hog = library.closest(kind: .roughing, diameter: 6)
+        let flat6 = bits.flat, ball = bits.ball, hog = bits.hog
         if t.topBelowStock {
             var f = Operation(kind: .facing, tool: flat6, material: material)
             f.facingDepth = min(ctx.stockTop - ctx.placed.modelBounds.max.z, 2)
@@ -101,7 +117,7 @@ public enum JobTemplates {
             ops.append(f)
         }
         // Hogging work first (one bit swap); its cutout stops above the stock bottom, so the part stays held.
-        let cutouts = cutouts(flat: flat6, hog: hog, material: material)
+        let cutouts = cutouts(flat: bits.cutout, hog: hog, material: material)
         var finishOps: [Operation] = []
         if t.hasCurvedTop {
             var r = Operation(kind: .roughing, tool: hog ?? flat6, material: material)

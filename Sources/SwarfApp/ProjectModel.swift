@@ -383,6 +383,53 @@ final class ProjectModel: ObservableObject {
         announceScaling(tool)
     }
 
+    // MARK: Auto Plan
+
+    /// A worked-out plan waiting for the user to accept it: the operations in run order (with the areas' own
+    /// operations kept), and the estimated run time.
+    struct AutoPlanProposal: Identifiable {
+        let id = UUID()
+        var plan: AutoPlan
+        var operations: [CAMCore.Operation]
+        var seconds: Double
+        var replacing: Int
+        var areaOps: Int
+    }
+    @Published var autoPlanProposal: AutoPlanProposal?
+    @Published private(set) var autoPlanning = false
+
+    /// Works out a plan from the tool library in the background (with each toolpath generated for the time estimate),
+    /// then shows it in `AutoPlanSheet` before changing anything.
+    func startAutoPlan() {
+        guard let mesh = document.mesh, !autoPlanning else { return }
+        let job = self.job, lib = ToolLibraryStore.shared.library, machine = self.machine
+        let material = CAMCore.Material.named(job.stock.materialID)
+        autoPlanning = true
+        Task { [weak self] in
+            let proposal = await Task.detached(priority: .userInitiated) { () -> AutoPlanProposal in
+                let plan = CAMContext(raw: mesh, job: job).autoPlan(library: lib, material: material)
+                let areaOps = job.operations.filter { $0.areaID != nil }
+                var j = job
+                j.operations = JobTemplates.orderedForFewestToolChanges(plan.operations + areaOps)
+                let ctx = CAMContext(raw: mesh, job: j)
+                let secs = j.operations.filter(\.enabled).compactMap { try? ctx.generate($0) }
+                    .reduce(0.0) { $0 + $1.stats(rapidRate: machine.rapidRate, acceleration: machine.acceleration).seconds }
+                return AutoPlanProposal(plan: plan, operations: j.operations, seconds: secs,
+                                        replacing: job.operations.count - areaOps.count, areaOps: areaOps.count)
+            }.value
+            guard let self else { return }
+            self.autoPlanning = false
+            self.autoPlanProposal = proposal
+        }
+    }
+
+    /// Replaces the job's operations (except the areas' own) with the plan. Undoable.
+    func applyAutoPlan(_ p: AutoPlanProposal) {
+        updateJob("Auto Plan") { $0.operations = p.operations }
+        if let f = p.operations.first { selection = .operation(f.id) }
+        showNotice("\(p.plan.bits.count) bit\(p.plan.bits.count == 1 ? "" : "s"), \(JobTemplates.toolChanges(p.operations)) bit change\(JobTemplates.toolChanges(p.operations) == 1 ? "" : "s"). Each bit gets its own G-code file. Undo with ⌘Z.")
+    }
+
     func addFullProcessing() {
         guard let mesh = document.mesh else { return }
         let job = self.job

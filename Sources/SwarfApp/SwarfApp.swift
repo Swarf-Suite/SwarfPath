@@ -105,6 +105,7 @@ struct SwarfCommands: Commands {
         }
         CommandMenu("Toolpath") {
             Button("Recalculate All Toolpaths") { model?.generateNow() }.keyboardShortcut("g", modifiers: .command)
+            Button("Auto Plan from Tool Library…") { model?.startAutoPlan() }.keyboardShortcut("a", modifiers: [.command, .shift])
             Button("Full Processing Template") { model?.addFullProcessing() }.keyboardShortcut("f", modifiers: [.command, .shift])
             Menu("Add Operation") {
                 ForEach(OperationKind.allCases) { k in Button(k.displayName) { model?.addOperation(k) } }

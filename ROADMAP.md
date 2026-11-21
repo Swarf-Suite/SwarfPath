@@ -84,6 +84,11 @@ The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:
 
 ## App
 
+- **Auto Plan on the machine.** Run an Auto Plan job with a rest pass (e.g. the slotted neck board: 1/4" clearing, 1/8"
+  rest) on the FoxAlien as a KerfLine file group, and check the run-time estimate against the real time.
+- **Auto Plan choices.** It takes the biggest bit that reaches. A setting to prefer a bit (or to leave bits out of
+  planning, such as ones that are worn) would help once real libraries grow.
+
 - **Areas on the machine.** Cut a neck blank with a truss-rod slot area (1/8" bit) on the FoxAlien and check the slot
   is where the box says, and that KerfLine shows the Z-zero badge Swarf's header gives.
 - **Areas from features.** An area is a box drawn by hand. Picking a slot or pocket on the model (or a polygon area)
