@@ -71,6 +71,8 @@ extension CAMContext {
             case .drill: String(format: "Makes the holes their own size (Ø%g mm)%@.", op.tool.diameter, op.tool.kind == .drill ? "" : "; the library has no drill that size")
             case .cutout where op.tool.id == hog?.id: "The hogging bit takes the bulk of the slot."
             case .cutout: String(format: "Reaches through the stock (%.1f mm) and is nearest 6 mm.", cutDepth)
+            case .slot: String(format: "Cuts slots its own width (Ø%g mm) that the bigger bits can't enter, down the middle in one pass per level.", op.tool.diameter)
+            case .parallelFinish where op.tool.kind.cutsFlat: "The clearing bit: its passes run along the curve, so its flat bottom leaves a smoother finish than a ball, with no bit change."
             case .parallelFinish, .waterlineFinish: String(format: "The biggest ball nose that reaches %.1f mm deep: the smoothest finish for the time.", clearDepth)
             case _ where op.tool.id == hog?.id: "The hogging bit does the bulk of the clearing."
             case _ where op.restFromOp != nil: "Takes the skin the hogging bit leaves, and what it couldn't reach."
@@ -118,7 +120,7 @@ extension CAMContext {
         }
 
         // A smaller ball nose where the finish can't follow tight concave curves.
-        if let i = ops.firstIndex(where: { $0.kind == .parallelFinish && $0.restFrom == nil }), let short = finishShortfall(ops[i]),
+        if let i = ops.firstIndex(where: { $0.kind == .parallelFinish && $0.restFrom == nil && $0.tool.kind == .ball }), let short = finishShortfall(ops[i]),
            short.maxThickness >= 0.15, short.area >= 10 {
             let fin = ops[i]
             let smaller = balls.filter { $0.diameter < fin.tool.diameter - 0.5 && reaches($0, .parallelFinish, clearDepth) }

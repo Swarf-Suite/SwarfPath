@@ -48,6 +48,8 @@ extension JobTemplates {
                     if b.restFromOp == nil, let t = b.restFrom, a.tool.id == t.id, i < j { before = true }
                     if (a.kind == .facing || b.kind == .facing) && i < j { before = true }
                     if isFinish(b) && clearsForFinishing(a) { before = true }
+                    // A slot cut from what's left must see the clearing above it done first.
+                    if b.kind == .slot && b.cutsLeftoverOnly && clearsForFinishing(a) && i < j { before = true }
                     if cutsFree(b) && (!cutsFree(a) || i < j) { before = true }
                     if before { must[j].insert(i) }
                 }

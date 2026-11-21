@@ -1,14 +1,14 @@
 import Foundation
 
 public enum OperationKind: String, Codable, Sendable, CaseIterable, Identifiable {
-    case facing, pocket, roughing, parallelFinish, waterlineFinish, vcarve, drill, cutout, dowelHoles
+    case facing, pocket, roughing, parallelFinish, waterlineFinish, vcarve, drill, cutout, dowelHoles, slot
     public var id: String { rawValue }
 
     /// Strategies that may machine the back after a flip. The part is already cut out from side A, and the back is
     /// never faced or engraved.
     public var allowedOnSideB: Bool {
         switch self {
-        case .pocket, .roughing, .parallelFinish, .waterlineFinish, .drill: return true
+        case .pocket, .roughing, .parallelFinish, .waterlineFinish, .drill, .slot: return true
         case .facing, .vcarve, .cutout, .dowelHoles: return false
         }
     }
@@ -17,7 +17,7 @@ public enum OperationKind: String, Codable, Sendable, CaseIterable, Identifiable
     public var supportsRest: Bool {
         switch self {
         case .pocket, .roughing, .parallelFinish, .waterlineFinish: return true
-        case .facing, .vcarve, .drill, .cutout, .dowelHoles: return false
+        case .facing, .vcarve, .drill, .cutout, .dowelHoles, .slot: return false
         }
     }
 
@@ -32,6 +32,7 @@ public enum OperationKind: String, Codable, Sendable, CaseIterable, Identifiable
         case .drill: return "Drill (Peck)"
         case .cutout: return "Cutout (Profile)"
         case .dowelHoles: return "Dowel Holes (Flip)"
+        case .slot: return "Slot"
         }
     }
 
@@ -46,6 +47,7 @@ public enum OperationKind: String, Codable, Sendable, CaseIterable, Identifiable
         case .drill: return "smallcircle.filled.circle"
         case .cutout: return "scissors"
         case .dowelHoles: return "pin"
+        case .slot: return "rectangle.split.3x1"
         }
     }
 }
@@ -190,6 +192,12 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
         get { drilling ?? DrillSettings() }
         set { drilling = newValue }
     }
+    // Slots (optional for older projects)
+    public var slotting: SlotSettings? = nil
+    public var slotSettings: SlotSettings {
+        get { slotting ?? SlotSettings() }
+        set { slotting = newValue }
+    }
     /// nil = every enabled region applies. Areas (`Region.isArea`) never come in this way: see `areaID`.
     public var regionIDs: [UUID]? = nil
     /// The area this operation is limited to: it machines only inside that box, with its own tool and feeds (a truss-rod
@@ -303,6 +311,11 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
             boundary = .stock
             drilling = DrillSettings()
             dowel = DowelSettings()
+            cutting.stepdown = max(0.5, min(cutting.stepdown, tool.diameter * 0.5))
+        case .slot:
+            boundary = .stock
+            slotting = SlotSettings()
+            // The cutter is buried its full width: half its diameter per level.
             cutting.stepdown = max(0.5, min(cutting.stepdown, tool.diameter * 0.5))
         }
         // A hogging bit leaves skins for the finishing bit.
@@ -439,7 +452,7 @@ public struct TestCut: Codable, Sendable, Equatable, Hashable {
         switch kind {
         case .cutout: return cutoutDepth
         case .drill, .dowelHoles: return drillDepth
-        case .pocket, .roughing, .parallelFinish, .waterlineFinish, .vcarve: return pocketDepth
+        case .pocket, .roughing, .parallelFinish, .waterlineFinish, .vcarve, .slot: return pocketDepth
         case .facing: return nil
         }
     }

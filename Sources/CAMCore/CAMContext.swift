@@ -351,7 +351,7 @@ public final class CAMContext: @unchecked Sendable {
             base = f
         } else {
             let mb = placed.modelBounds.min.z
-            base = op.kind == .pocket ? max(0, mb) : (mb <= 0.01 ? min(op.bottomSkin, stockTop) : mb)
+            base = op.kind == .pocket || op.kind == .slot ? max(0, mb) : (mb <= 0.01 ? min(op.bottomSkin, stockTop) : mb)
         }
         if op.kind != .cutout, op.kind != .drill, op.kind != .dowelHoles, let t = depthFloor(op) { return max(base, t) }
         return base
@@ -528,7 +528,7 @@ public final class CAMContext: @unchecked Sendable {
         guard c.rpm.isFinite, c.rpm >= 0 else { throw bad("the spindle speed is not valid.") }
         guard c.stepdown.isFinite, c.stepdown > 0 else { throw bad("the stepdown must be greater than zero.") }
         guard c.rampAngle.isFinite else { throw bad("the ramp angle is not valid.") }
-        let usesStepover = op.kind != .cutout && op.kind != .waterlineFinish && op.kind != .drill && op.kind != .dowelHoles
+        let usesStepover = op.kind != .cutout && op.kind != .waterlineFinish && op.kind != .drill && op.kind != .dowelHoles && op.kind != .slot
         if usesStepover {
             guard c.stepoverPercent.isFinite, c.stepoverPercent > 0, op.stepover >= 0.02 else {
                 throw bad("the stepover is too small (it must be at least 0.02 mm).")
@@ -581,6 +581,7 @@ public final class CAMContext: @unchecked Sendable {
         case .vcarve: tp = try vcarve(op, progress: progress)
         case .drill: tp = try drill(op, progress: progress)
         case .cutout: tp = try cutout(op, progress: progress)
+        case .slot: tp = try slotMilling(op, progress: progress)
         case .dowelHoles:
             if side == .b { return try CAMContext(placed: placed.rolledAboutX(), job: job, side: .a, protection: nil).generate(op, progress: progress) }
             tp = try dowelHoles(op, progress: progress)

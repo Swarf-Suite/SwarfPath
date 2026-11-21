@@ -561,7 +561,7 @@ struct OperationInspector: View {
                 NumberField(title: "Feed", value: b(\.cutting.feed), unit: "mm/min", step: 50, range: 1...20000, digits: 0)
                 NumberField(title: "Plunge", value: b(\.cutting.plunge), unit: "mm/min", step: 25, range: 1...10000, digits: 0)
                 NumberField(title: op.kind == .waterlineFinish ? "Z step" : op.kind == .drill || op.kind == .dowelHoles ? "Peck depth" : "Stepdown", value: b(\.cutting.stepdown), step: 0.1, range: 0.05...50)
-                if op.kind != .cutout && op.kind != .waterlineFinish && op.kind != .drill && op.kind != .dowelHoles {
+                if op.kind != .cutout && op.kind != .waterlineFinish && op.kind != .drill && op.kind != .dowelHoles && op.kind != .slot {
                     NumberField(title: "Stepover", value: b(\.cutting.stepoverPercent), unit: String(format: "%% (%.2f)", op.stepover), step: 1, range: 1...100, digits: 0)
                 }
                 if op.kind != .parallelFinish && op.kind != .waterlineFinish && op.kind != .facing && op.kind != .vcarve && op.kind != .drill && op.kind != .dowelHoles {
@@ -836,6 +836,17 @@ struct OperationInspector: View {
                             op.drillSettings.diameterTolerance, op.tool.diameter,
                             op.drillSettings.retract == .full ? "back out above the stock to clear chips" : "a small lift to break the chip"))
                     .font(.caption).foregroundStyle(.secondary)
+            }
+        case .slot:
+            Section("Slots") {
+                NumberField(title: "Wider than the bit by up to", value: b(\.slotSettings.widthTolerance), unit: "mm", step: 0.1, range: 0...2)
+                Toggle("Only what earlier operations left", isOn: b(\.cutsLeftoverOnly))
+                if !op.tool.kind.cutsFlat {
+                    Label("Choose a flat end mill for this operation.", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                }
+                Text(String(format: "Finds slots Ø%.3g–%.3g mm wide (the bit's own width, plus the allowance) and cuts each down its centre line, ramping along the slot, with a pass along each wall where it is wider than the bit. Slots narrower than the bit are left alone.",
+                            op.tool.diameter, op.tool.diameter + op.slotSettings.widthTolerance))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         case .dowelHoles:
             Section("Dowel holes") {

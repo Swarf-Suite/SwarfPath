@@ -135,6 +135,25 @@ public enum JobTemplates {
         }
     }
 
+    /// Slot operations for slots the pockets' bit is too big for but a smaller flat in the library fits exactly (a 4 mm
+    /// slot with a 4 mm bit), largest bit first. Each bit only takes slots its own width (up to the slot tolerance wider),
+    /// so a slot is never cut twice. Slots the pockets' own bit fits are cut by the pockets (`narrowSlotPasses`).
+    static func slotting(_ ctx: CAMContext, library: ToolLibrary, material: Material, larger: Tool) -> [Operation] {
+        let flats = (library.tools.isEmpty ? ToolLibrary.starter : library).tools
+            .filter { $0.kind == .flat && $0.diameter >= 1 && $0.diameter < larger.diameter - 0.05 }
+            .sorted { $0.diameter > $1.diameter }
+        var out: [Operation] = []
+        var sizes: [Double] = []
+        for t in flats where !sizes.contains(where: { abs($0 - t.diameter) < 0.05 }) {
+            sizes.append(t.diameter)
+            var op = Operation(kind: .slot, tool: t, material: material)
+            op.name = String(format: "Slots Ø%g", t.diameter)
+            guard let found = try? ctx.findSlots(op), !found.isEmpty else { continue }
+            out.append(op)
+        }
+        return out
+    }
+
     /// Full Processing's defaults for working together: every operation after the first cuts only what the ones before
     /// it left, and pockets and finishes run straight over the holes that are drilled.
     static func linkUp(_ ops: [Operation]) -> [Operation] {
@@ -142,7 +161,7 @@ public enum JobTemplates {
         return ops.enumerated().map { i, op in
             var o = op
             if drills && o.kind.supportsRest { o.ignoresDrilledHoles = true }
-            if i > 0 && (o.kind.supportsRest || o.kind == .drill) && o.restFromOp == nil && o.restFrom == nil { o.cutsLeftoverOnly = true }
+            if i > 0 && (o.kind.supportsRest || o.kind == .drill || o.kind == .slot) && o.restFromOp == nil && o.restFrom == nil { o.cutsLeftoverOnly = true }
             return o
         }
     }
@@ -180,9 +199,12 @@ public enum JobTemplates {
             ops.append(p[0])
             finishOps += p.dropFirst()
             if t.hasCurvedPatches {
-                // The pocket's levels leave steps on the curved parts; the ball takes only those, along the curve.
-                var f = Operation(kind: .parallelFinish, tool: ball, material: material)
+                // The pocket's levels leave steps on the curved parts; the pocket's flat takes only those. Its passes run
+                // along the curve (`rasterChoice`), so its straight bottom edge lies across a surface that is straight
+                // that way: smoother than a ball's scallops, and no bit change.
+                var f = Operation(kind: .parallelFinish, tool: flat6, material: material)
                 f.name = "Finish (curves)"
+                f.cutting.stepoverPercent = 10
                 // On the part, and past its open edges so the curve is finished right to them; the cutout takes the rest.
                 f.boundary = .insideSilhouette
                 f.runsPastOpenEdges = true
@@ -190,6 +212,7 @@ public enum JobTemplates {
                 finishOps.append(f)
             }
         }
+        finishOps += slotting(ctx, library: library, material: material, larger: flat6)
         finishOps += drilling(ctx, library: library, material: material)
         // The hogging cutout goes with the hogging work; the finishing cutout always comes last.
         if cutouts.count > 1 { ops.append(cutouts[0]) }

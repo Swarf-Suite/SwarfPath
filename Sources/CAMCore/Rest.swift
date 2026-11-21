@@ -52,7 +52,7 @@ extension CAMContext {
             let me = job.operations.firstIndex { $0.id == op.id } ?? job.operations.count
             guard let i = job.operations.firstIndex(where: { $0.id == id }), i < me else { return nil }
             var r = job.operations[i]
-            guard r.enabled, r.machiningSide == op.machiningSide, r.kind != .drill, r.kind != .dowelHoles, r.kind != .vcarve else { return nil }
+            guard r.enabled, r.machiningSide == op.machiningSide, r.kind != .drill, r.kind != .dowelHoles, r.kind != .vcarve, r.kind != .slot else { return nil }
             r.restFrom = nil; r.restFromOp = nil; r.restExtraStock = nil
             return r
         }

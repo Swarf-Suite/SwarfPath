@@ -10,6 +10,9 @@ import simd
 /// and each candidate is moved onto the slot's centre line, where its clearance from the true geometry
 /// (`ToolFootprint`) is largest. Where that clearance is at least zero, the cutter fits and the slot is cut along it.
 extension CAMContext {
+    /// A slot exactly the cutter's width has zero clearance; numerically it may come out a few microns negative.
+    static let slotFitTolerance = -0.005
+
     /// One slot pass: a centre line, cut at `z`.
     struct SlotPass { var z: Double; var points: [V2] }
 
@@ -40,7 +43,7 @@ extension CAMContext {
             var point = [Int: V2]()
             for i in cand {
                 let p0 = g.world(i % W, i / W)
-                guard let p = centreLine(p0, fp: fp, span: 2 * res), fp.margin(p, extra: 0) >= -1e-4, allowed(p, z) else { continue }
+                guard let p = centreLine(p0, fp: fp, span: 2 * res), fp.margin(p, extra: 0) >= Self.slotFitTolerance, allowed(p, z) else { continue }
                 if let rest, !(rest.materialTop.nearest(p) > zf + 0.02) { continue }
                 point[i] = p
             }
@@ -62,7 +65,7 @@ extension CAMContext {
                         }
                     }
                 }
-                for run in orderedRuns(comp, fp: fp, z: z, allowed: allowed) { out.append(SlotPass(z: z, points: run)) }
+                for run in orderedRuns(comp, fp: fp, z: z, minMargin: Self.slotFitTolerance, allowed: allowed) { out.append(SlotPass(z: z, points: run)) }
             }
         }
         return out
@@ -70,7 +73,7 @@ extension CAMContext {
 
     /// The point of greatest clearance on the line through `p0` across the slot (perpendicular to the nearest wall),
     /// within `span` either side. nil when nothing is near enough to tell the direction.
-    private func centreLine(_ p0: V2, fp: ToolFootprint, span: Double) -> V2? {
+    func centreLine(_ p0: V2, fp: ToolFootprint, span: Double) -> V2? {
         // The direction away from the nearest material, from the band where the cutter is full width.
         guard let s = fp.slices.last(where: { $0.full }) ?? fp.slices.last,
               let (d, q) = s.fp.nearest(p0, within: s.r + 2 * span), d > 1e-9 else { return nil }
@@ -89,7 +92,7 @@ extension CAMContext {
 
     /// The centre-line points of one slot as polylines: ordered along the slot's main direction, thinned to 0.25 mm,
     /// and split wherever the straight segment between two points would cut the part.
-    private func orderedRuns(_ pts: [V2], fp: ToolFootprint, z: Double, allowed: (V2, Double) -> Bool) -> [[V2]] {
+    func orderedRuns(_ pts: [V2], fp: ToolFootprint, z: Double, minMargin: Double = -1e-4, allowed: (V2, Double) -> Bool) -> [[V2]] {
         guard !pts.isEmpty else { return [] }
         let c = pts.reduce(V2(0, 0), +) / Double(pts.count)
         var sxx = 0.0, sxy = 0.0, syy = 0.0
@@ -110,7 +113,7 @@ extension CAMContext {
         }
         if !bucket.isEmpty { thin.append(bucket.reduce(V2(0, 0), +) / Double(bucket.count)) }
         // A mean of centre-line points can fall off it on a curve; keep only points that still fit.
-        thin = thin.filter { fp.margin($0, extra: 0) >= -1e-4 && allowed($0, z) }
+        thin = thin.filter { fp.margin($0, extra: 0) >= minMargin && allowed($0, z) }
         var runs: [[V2]] = []
         var cur: [V2] = []
         for p in thin {
@@ -119,7 +122,7 @@ extension CAMContext {
                 let n = max(1, Int(ceil(len / 0.1)))
                 let ok = len < 2 && (1..<n).allSatisfy { k in
                     let q = last + (p - last) * (Double(k) / Double(n))
-                    return fp.margin(q, extra: 0) >= -1e-4 && allowed(q, z)
+                    return fp.margin(q, extra: 0) >= minMargin && allowed(q, z)
                 }
                 if !ok { if cur.count >= 2 { runs.append(cur) }; cur = [] }
             }

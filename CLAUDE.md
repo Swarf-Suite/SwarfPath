@@ -73,6 +73,11 @@ Three targets share one engine:
    Slots the grid says a flat pocket cutter can't enter but the true geometry can (a 6.2 mm channel with a 6 mm bit) get
    centre-line passes from `narrowSlotPasses` (Slots.swift): a ternary search across the slot for the largest
    `ToolFootprint.margin`, accepted only where it peaks inside the search (a real pinch).
+   The Slot operation (`OperationKind.slot`, SlotMilling.swift) does the same for any flat bit as its own operation:
+   `findSlots` works deepest level first, accepts centre points whose margin is between `slotFitTolerance` and half
+   `SlotSettings.widthTolerance`, and cuts each slot from the material above it (stock top or `priorStock`) to its floor,
+   with wall passes where it's wider than the bit. Full Processing adds one per smaller library flat that finds slots
+   (`JobTemplates.slotting`); its "Finish (curves)" uses the pocket's flat, along the curve.
    `refine` caps each move at two cells and takes an `accept` check (keep-outs, boundary). Anything new that
    produces finished walls should use it too, or parts come out a few tenths undersize. `minZ` clips triangles
    at that height, so sloped and filleted walls give the true cross-section.

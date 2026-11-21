@@ -45,6 +45,16 @@ Rest machining is in (`Rest.swift`): a smaller tool cuts only what a larger one 
   own rest passes still use `restFromOp`.
 - **Cut a near-fit slot on the machine.** The 6 mm flat now cuts the neck's 6.2 mm truss-rod channel on its centre line
   (`Slots.swift`) with 0.1 mm either side. Check the real width, and whether bit runout makes it rub or chatter.
+- **Slot operation** (`SlotMilling.swift`): slots a flat fits exactly (D to D + `widthTolerance`), cut down the centre
+  line with wall passes where wider. Full Processing adds one per smaller library flat that finds slots. Loose ends:
+  - Each slot's points are ordered along one main axis, so an L-shaped or curved slot is split where the order
+    zig-zags and may lose its corner. Chain the points instead.
+  - Detection runs a distance transform per level and the exact search only on ridge cells (slot centres); about
+    0.2 s on an 80 mm test plate. It runs once per library flat in Full Processing, so time it on a big library.
+  - Slots are found at their floor and cut whole from the top down. A slot with a stepped floor gets one run per step,
+    each from the top, so the shallow part's air is cut twice.
+  - Cut a 4 mm slot with the 4 mm bit on the machine: full-width slotting at half-diameter stepdown and the
+    calculator's feed. Check chip clearing and whether the feed should drop for slotting.
 - **Slot passes are flat-bottomed pocket passes only.** A slot that narrows below a ball or bull nose's full width, or a
   roughing op, still falls back to a smaller bit.
 
@@ -63,10 +73,9 @@ The wide trench is in (`cutout` in Operations.swift, `CutoutTrench` in Job.swift
 Parallel finishes pick their direction from the surface, and roughing leaves enough for the finishes after it
 (`FinishDirection.swift`). Loose ends:
 
-- **Flat or ball for the curve finish.** Full Processing's "Finish (curves)" uses the ball nose. With the edge overrun
-  a 6 mm flat at the same stepover left slightly less on the neck (1136 vs 1187 leftover cells): it follows surfaces
-  that are straight across the passes exactly, but leaves R²/2r in concave coves. Choosing the flat automatically when
-  the curvature runs one way only would suit necks.
+- **Flat for the curve finish on every part?** Full Processing's "Finish (curves)" now uses the pocket's flat at 10%
+  stepover, along the curve. That suits necks (curvature one way), but in concave coves a flat leaves R²/2r, and a dished
+  patch curving both ways gets steps. Consider choosing the ball where the patch curves both ways.
 - **Edge overrun on the machine.** Pockets carry on past open edges (`runsPastOpenEdges`). Check the waste it cuts
   outside the part doesn't weaken the stock where it's clamped.
 - **Finish a neck on the FoxAlien** with a flat end mill along X and check the headstock transition for ridges and
