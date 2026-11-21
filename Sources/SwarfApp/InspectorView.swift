@@ -344,14 +344,18 @@ struct RegionInspector: View {
 
     var body: some View {
         let protect = model.regionBinding(id, \.protectBelowZ)
+        let isArea = model.job.regions.first { $0.id == id }?.isArea ?? false
         Form {
-            Section("Region") {
+            Section(isArea ? "Area for its own operations" : "Region") {
                 TextField("Name", text: model.regionBinding(id, \.name))
-                Picker("Type", selection: model.regionBinding(id, \.kind)) {
-                    ForEach(Region.Kind.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                if !isArea {
+                    Picker("Type", selection: model.regionBinding(id, \.kind)) {
+                        ForEach(Region.Kind.allCases, id: \.self) { Text($0.displayName).tag($0) }
+                    }
                 }
                 Toggle("Enabled", isOn: model.regionBinding(id, \.enabled))
             }
+            if isArea { areaOperations }
             if model.job.activeFlip != nil {
                 Section {
                     Picker("Side", selection: model.regionBinding(id, \.appliesTo)) {
@@ -368,7 +372,7 @@ struct RegionInspector: View {
                 NumberField(title: "Max X", value: model.regionBinding(id, \.max.x), step: 1)
                 NumberField(title: "Max Y", value: model.regionBinding(id, \.max.y), step: 1)
             }
-            if model.regionBinding(id, \.kind).wrappedValue == .keepOut {
+            if !isArea && model.regionBinding(id, \.kind).wrappedValue == .keepOut {
                 Section {
                     Toggle("Allow cutting down to a height", isOn: Binding(get: { protect.wrappedValue != nil }, set: { on in
                         protect.wrappedValue = on ? (model.placed?.stockTop ?? 10) - 1 : nil
@@ -380,8 +384,44 @@ struct RegionInspector: View {
                     Text("By default the tool never enters a keep-out region, keeping a full cutter radius away. Toggle this to allow skimming above a feature, for example to face over it.").font(.caption)
                 }
             }
+            if !isArea { appliesTo }
+            Section {
+                Button(isArea ? "Delete Area" : "Delete Region", role: .destructive) { model.deleteRegion(id) }
+                Text("In the view: click a box to select it, drag the selected box to move it, arrow keys nudge it (⇧ 10 mm, ⌥ 0.1 mm), ⌫ deletes it.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    /// The operations limited to this area, and the button that adds one.
+    var areaOperations: some View {
+        Section {
+            ForEach(model.operations(inArea: id)) { op in
+                Button { model.selection = .operation(op.id) } label: {
+                    HStack {
+                        Image(systemName: op.kind.symbol)
+                        Text(op.name)
+                        Spacer()
+                        Text("T\(op.tool.number) · Ø\(String(format: "%.3g", op.tool.diameter)) mm").foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            Button { model.areaOperationRequest = AreaRequest(id: id) } label: {
+                Label("New Operation in This Area…", systemImage: "plus")
+            }
+        } header: {
+            Text("Operations in this area")
+        } footer: {
+            Text("Each one machines only inside this box, with its own bit and feeds: a truss-rod slot cut with a smaller bit than the neck, say. The other operations aren't limited by it; draw a keep-out too if they must not cut here.")
+                .font(.caption)
+        }
+    }
+
+    var appliesTo: some View {
             Section("Applies to") {
-                ForEach(model.job.operations) { op in
+                ForEach(model.job.operations.filter { $0.areaID == nil }) { op in
                     let ids = model.opBinding(op.id, \.regionIDs)
                     Toggle(op.name, isOn: Binding(get: { ids?.wrappedValue == nil || ids!.wrappedValue!.contains(id) }, set: { on in
                         guard let ids else { return }
@@ -391,13 +431,66 @@ struct RegionInspector: View {
                     }))
                 }
             }
-            Section {
-                Button("Delete Region", role: .destructive) { model.deleteRegion(id) }
-                Text("In the view: click a box to select it, drag the selected box to move it, arrow keys nudge it (⇧ 10 mm, ⌥ 0.1 mm), ⌫ deletes it.")
-                    .font(.caption).foregroundStyle(.secondary)
+    }
+}
+
+/// "New Operation in This Area": the kind of operation and the bit. Feeds and speeds come from the bit, and are
+/// changed in the operation's inspector, which is selected once it's added.
+struct AreaOperationSheet: View {
+    @ObservedObject var model: ProjectModel
+    @ObservedObject var tools = ToolLibraryStore.shared
+    let areaID: UUID
+    @Environment(\.dismiss) private var dismiss
+    @State private var kind: OperationKind = .pocket
+    @State private var toolID: UUID?
+
+    static let kinds: [OperationKind] = OperationKind.allCases.filter { $0 != .dowelHoles && $0 != .facing }
+
+    var body: some View {
+        let area = model.job.regions.first { $0.id == areaID }
+        VStack(alignment: .leading, spacing: 14) {
+            Text("New Operation in \(area?.name ?? "This Area")").font(.headline)
+            Text("It machines only inside the box, with its own bit and feeds.")
+                .font(.callout).foregroundStyle(.secondary)
+            Form {
+                Picker("Operation", selection: $kind) {
+                    ForEach(Self.kinds) { k in Label(k.displayName, systemImage: k.symbol).tag(k) }
+                }
+                Picker("Bit", selection: $toolID) {
+                    ForEach(tools.tools) { t in Text("T\(t.number) · \(t.name)").tag(Optional(t.id)) }
+                }
+                if let t = tools.tools.first(where: { $0.id == toolID }) {
+                    let c = CAMCore.Operation(kind: kind, tool: t, material: .named(model.job.stock.materialID)).cutting
+                    LabeledContent("Feeds & speeds", value: String(format: "%.0f rpm · feed %.0f · plunge %.0f mm/min · %.2g mm per pass", c.rpm, c.feed, c.plunge, c.stepdown))
+                    Text("For this bit in the stock's material. Change them in the operation once it's added.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .formStyle(.grouped)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Add Operation") {
+                    let t = tools.tools.first { $0.id == toolID }
+                    dismiss()
+                    model.addOperation(kind, tool: t, area: areaID)
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(area == nil || toolID == nil)
             }
         }
-        .formStyle(.grouped)
+        .padding(20)
+        .frame(width: 460)
+        .onAppear {
+            // The smallest flat bit: an area is usually there because the main bit is too big for it.
+            toolID = tools.tools.filter { $0.kind == .flat }.min { $0.diameter < $1.diameter }?.id ?? tools.tools.first?.id
+        }
+        .onChange(of: kind) { _, k in
+            let want: ToolKind? = k == .vcarve ? .vBit : k == .parallelFinish || k == .waterlineFinish ? .ball : k == .drill ? nil : .flat
+            if let want, tools.tools.first(where: { $0.id == toolID })?.kind != want {
+                toolID = tools.tools.filter { $0.kind == want }.min { $0.diameter < $1.diameter }?.id ?? toolID
+            }
+        }
     }
 }
 
@@ -521,6 +614,18 @@ struct OperationInspector: View {
                                 unit: "mm", step: 0.5, range: 0.1...500)
                     Text(String(format: "Measured down from the top of the stock (%.1f mm thick). Nothing in this operation cuts deeper; material below is left.", thickness))
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            let areas = model.job.regions.filter(\.isArea)
+            if op.areaID != nil || (!areas.isEmpty && op.kind != .dowelHoles) {
+                Section {
+                    Picker("Machine only in", selection: b(\.areaID)) {
+                        Text("The whole part").tag(UUID?.none)
+                        ForEach(areas) { r in Text(r.name).tag(Optional(r.id)) }
+                        if let a = op.areaID, !areas.contains(where: { $0.id == a }) { Text("A deleted area").tag(Optional(a)) }
+                    }
+                } footer: {
+                    Text("An area is a box drawn for operations of their own (⌥⌘A): this operation cuts only inside it.").font(.caption)
                 }
             }
             kindSpecific(op)

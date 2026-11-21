@@ -190,8 +190,11 @@ public struct Operation: Codable, Sendable, Identifiable, Equatable {
         get { drilling ?? DrillSettings() }
         set { drilling = newValue }
     }
-    /// nil = every enabled region applies.
+    /// nil = every enabled region applies. Areas (`Region.isArea`) never come in this way: see `areaID`.
     public var regionIDs: [UUID]? = nil
+    /// The area this operation is limited to: it machines only inside that box, with its own tool and feeds (a truss-rod
+    /// slot in a neck, say). nil = no area, as older projects had it.
+    public var areaID: UUID? = nil
     // Dowel holes (two-sided jobs)
     public var dowel: DowelSettings? = nil
     public var dowelSettings: DowelSettings {
@@ -324,6 +327,10 @@ public struct Region: Codable, Sendable, Identifiable, Equatable {
     /// Two-sided jobs: which side's operations it applies to (clamps move after the flip). nil = both, as older
     /// projects had it.
     public var sides: RegionSides? = nil
+    /// An area for operations of its own (`Operation.areaID`): only operations limited to it use it, and they machine
+    /// only inside it (as `machineOnly`). Every other operation ignores it. nil = an ordinary region.
+    public var area: Bool? = nil
+    public var isArea: Bool { area ?? false }
     public var appliesTo: RegionSides {
         get { sides ?? .both }
         set { sides = newValue == .both ? nil : newValue }

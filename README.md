@@ -46,6 +46,10 @@ more, with a post-processor for each popular hobby machine.
   inside corners, narrow slots, tight curves), in a few minutes instead of re-cutting the whole pocket.
 - **Protect features** with keep-out boxes you drag over the model. Click a box to select it, then
   drag it, nudge it with the arrow keys, or delete it with ⌫.
+- **Areas with their own operations**: draw a box (⌥⌘A) over a feature that needs a different bit, such as a
+  truss-rod slot in a neck, and add operations that machine only inside it, each with its own bit and feeds.
+- **Says where Z zero goes**: a badge in the status bar (TOP of stock or SPOILBOARD), and the same in plain words in
+  each G-code file's header, which KerfLine shows before you start.
 - **Simulate** material removal, with a gouge check, a leftover-stock heat map, keep-out checks and a
   run-time estimate.
 - **Export** G-code for your machine, plus a printable PDF setup sheet.
@@ -122,12 +126,26 @@ Swarf keeps that shank off the walls above the flutes, so beside a wall the bit 
 top of the wall, and it tells you how much it had to leave. After a simulation, Swarf suggests a rest pass when a
 clearing operation leaves material a smaller bit in your library could reach.
 
+**Areas.** Some features need their own bit: a truss-rod slot is narrower than the bit that cuts out the neck.
+Choose **Toolpaths ▸ Draw Area for Its Own Operation** (⌥⌘A) or the dashed-box button above the region list, and drag
+a box over the feature. Swarf asks for the operation (pocket, roughing, finishing, cutout and so on) and the bit,
+shows the feeds and speeds for that bit in the stock's material, and adds the operation limited to the box; change its
+feeds in its inspector as usual. An area's inspector lists its operations and adds more (**New Operation in This
+Area…**, also in its right-click menu), and any operation can be moved into an area with *Machine only in*. Areas are
+blue in the view. They limit only their own operations: the neck's roughing still cuts over the slot, so draw a
+keep-out as well if the other operations must stay out. An operation whose area is deleted, turned off or set to the
+other side is refused rather than cutting the whole part with the small bit.
+
+**Where Z zero goes.** The status bar shows **Z zero: TOP of stock** or **Z zero: SPOILBOARD** (orange) for the job's
+origin; click it to change it in the stock settings. Each exported file's header says the same in words
+(`Z0 = TOP of stock: touch off Z on the material surface`), and KerfLine shows it beside the file before it runs.
+
 **Fewer Bit Changes**, under the operation list, regroups the operations so each bit does all its work in one go (one
 G-code file per bit change), keeping the orders that matter: rest passes after what they follow, 3D finishing after
 roughing, the freeing cutout last, and two-sided steps in sequence.
 
 Every operation has its own tool, spindle speed, feed, plunge rate, stepdown and stepover. You can
-also set climb or conventional cutting, stock to leave, and which keep-out regions apply.
+also set climb or conventional cutting, stock to leave, which keep-out regions apply, and the area it is limited to.
 
 ## Tool library
 

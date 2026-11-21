@@ -36,27 +36,33 @@ struct SidebarView: View {
                         HStack {
                             Text(r.name).strikethrough(!r.enabled)
                             Spacer()
-                            Text((r.kind == .keepOut ? "keep-out" : "only")
+                            Text((r.isArea ? "area · \(model.operations(inArea: r.id).count) op\(model.operations(inArea: r.id).count == 1 ? "" : "s")" : r.kind == .keepOut ? "keep-out" : "only")
                                  + (model.job.activeFlip != nil && r.appliesTo != .both ? (r.appliesTo == .a ? " · A" : " · B") : ""))
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
                     } icon: {
-                        Image(systemName: r.kind == .keepOut ? "nosign" : "square.dashed").foregroundStyle(r.kind == .keepOut ? .red : .green)
+                        Image(systemName: r.isArea ? "rectangle.dashed" : r.kind == .keepOut ? "nosign" : "square.dashed")
+                            .foregroundStyle(r.isArea ? .blue : r.kind == .keepOut ? .red : .green)
                     }
                     .tag(SidebarItem.region(r.id))
                     .contextMenu {
+                        if r.isArea { Button("New Operation in This Area…") { model.areaOperationRequest = AreaRequest(id: r.id) } }
                         Button(r.enabled ? "Disable" : "Enable") { model.regionBinding(r.id, \.enabled).wrappedValue.toggle() }
                         Button("Delete", role: .destructive) { model.deleteRegion(r.id) }
                     }
                 }
                 if model.job.regions.isEmpty {
-                    Text("Drag boxes over features you don't want milled.")
+                    Text("Drag boxes over features you don't want milled, or over a feature that needs its own bit.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             } header: {
                 HStack {
                     Text("Regions")
                     Spacer()
+                    Button { model.mode = .drawArea } label: { Image(systemName: "rectangle.dashed") }
+                        .buttonStyle(.borderless)
+                        .help("Draw an area for an operation of its own, with its own bit and feeds (⌥⌘A)")
+                        .disabled(model.placed == nil)
                     Button { model.mode = .drawKeepOut } label: { Image(systemName: "plus.rectangle.on.rectangle") }
                         .buttonStyle(.borderless)
                         .help("Draw a keep-out region (⌥⌘K)")

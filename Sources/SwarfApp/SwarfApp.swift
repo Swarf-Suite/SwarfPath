@@ -101,6 +101,7 @@ struct SwarfCommands: Commands {
             Button("Reset Orientation") { model?.resetOrientation() }
             Divider()
             Button("Draw Keep-out Region") { model?.mode = .drawKeepOut }.keyboardShortcut("k", modifiers: [.command, .option])
+            Button("Draw Area for Its Own Operation") { model?.mode = .drawArea }.keyboardShortcut("a", modifiers: [.command, .option])
         }
         CommandMenu("Toolpath") {
             Button("Recalculate All Toolpaths") { model?.generateNow() }.keyboardShortcut("g", modifiers: .command)

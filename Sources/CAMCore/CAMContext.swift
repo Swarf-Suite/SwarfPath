@@ -189,7 +189,17 @@ public final class CAMContext: @unchecked Sendable {
     // MARK: Regions
 
     func regions(for op: Operation) -> [Region] {
-        job.regions.filter { r in r.enabled && r.applies(to: side) && (op.regionIDs == nil || op.regionIDs!.contains(r.id)) }
+        job.regions.compactMap { r in
+            guard r.enabled, r.applies(to: side) else { return nil }
+            if r.isArea {
+                // Only the operations limited to an area use it, and inside it they may only machine there.
+                guard r.id == op.areaID else { return nil }
+                var m = r
+                m.kind = .machineOnly
+                return m
+            }
+            return op.regionIDs == nil || op.regionIDs!.contains(r.id) ? r : nil
+        }
     }
 
     func isForbiddenXY(_ p: V2, z: Double, op: Operation, inflate: Double) -> Bool {
@@ -355,6 +365,14 @@ public final class CAMContext: @unchecked Sendable {
     func validate(_ op: Operation) throws {
         func bad(_ what: String) -> CAMError { .invalidSettings("\(op.name): \(what)") }
         let t = op.tool, c = op.cutting
+        if let a = op.areaID {
+            // Without its area the operation would machine the whole part with a bit chosen for one small feature.
+            guard let r = job.regions.first(where: { $0.id == a }), r.isArea else {
+                throw bad("the area it is limited to has been deleted. Choose another area for it, or delete the operation.")
+            }
+            guard r.enabled else { throw bad("its area \"\(r.name)\" is turned off. Turn the area on, or turn the operation off.") }
+            guard r.applies(to: side) else { throw bad("its area \"\(r.name)\" is set to \(r.appliesTo.displayName.lowercased()). Set the area to this side too.") }
+        }
         guard t.diameter.isFinite, t.diameter >= 0.05 else { throw bad("the tool diameter must be at least 0.05 mm.") }
         guard t.diameter <= 2 * (CAMContext.maxGridMargin - 4) else { throw bad("the tool diameter is too large.") }
         guard c.feed.isFinite, c.feed >= 1 else { throw bad("the feed rate must be at least 1 mm/min.") }

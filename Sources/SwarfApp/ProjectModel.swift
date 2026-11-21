@@ -11,7 +11,9 @@ enum SidebarItem: Hashable {
 }
 
 enum InteractionMode: String, CaseIterable, Identifiable {
-    case orbit, faceUp, faceDown, drawKeepOut, placeTab, placeDowel
+    case orbit, faceUp, faceDown, drawKeepOut, drawArea, placeTab, placeDowel
+    /// Drawing a box in the top view.
+    var drawsBox: Bool { self == .drawKeepOut || self == .drawArea }
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -19,6 +21,7 @@ enum InteractionMode: String, CaseIterable, Identifiable {
         case .faceUp: return "Pick Top Face"
         case .faceDown: return "Pick Bottom Face"
         case .drawKeepOut: return "Draw Keep-out"
+        case .drawArea: return "Draw Area for Its Own Operation"
         case .placeTab: return "Place Tabs"
         case .placeDowel: return "Place Dowel Holes"
         }
@@ -29,11 +32,14 @@ enum InteractionMode: String, CaseIterable, Identifiable {
         case .faceUp: return "arrow.up.square"
         case .faceDown: return "arrow.down.square"
         case .drawKeepOut: return "rectangle.dashed.badge.record"
+        case .drawArea: return "rectangle.dashed"
         case .placeTab: return "pin"
         case .placeDowel: return "circle.circle"
         }
     }
 }
+
+struct AreaRequest: Identifiable, Equatable { let id: UUID }
 
 enum OpStatus: Equatable {
     case pending, running(Double), done, failed(String)
@@ -342,27 +348,35 @@ final class ProjectModel: ObservableObject {
 
     // MARK: Operations
 
-    func addOperation(_ kind: OperationKind) {
+    /// Add an operation. With `tool`, that tool and only one operation (no hogging pair); with `area`, the operation
+    /// machines only inside that area.
+    func addOperation(_ kind: OperationKind, tool chosen: Tool? = nil, area: UUID? = nil) {
         let lib = ToolLibraryStore.shared.library
         // The library can be empty (every tool deleted): fall back to the built-in starter tools.
         func pick(_ k: ToolKind) -> Tool {
             lib.closest(kind: k, diameter: 6) ?? lib.tools.first ?? ToolLibrary.starter.closest(kind: k, diameter: 6)
                 ?? ToolLibrary.starter.tools[0]
         }
-        let tool: Tool
-        let hog = lib.closest(kind: .roughing, diameter: 6)
+        var tool: Tool
+        let hog = chosen == nil ? lib.closest(kind: .roughing, diameter: 6) : nil
         switch kind {
         case .parallelFinish, .waterlineFinish: tool = pick(.ball)
         case .vcarve: tool = pick(.vBit)
         case .roughing: tool = hog ?? pick(.flat)
         default: tool = pick(.flat)
         }
+        if let chosen { tool = chosen }
         let material = CAMCore.Material.named(job.stock.materialID)
         // A pocket with a hogging bit in the library: hogging first, then the flat bit finishes (two files).
-        let ops = kind == .pocket && hog != nil ? JobTemplates.pockets(flat: tool, hog: hog, material: material)
+        var ops = kind == .pocket && hog != nil ? JobTemplates.pockets(flat: tool, hog: hog, material: material)
             : kind == .cutout && hog != nil ? JobTemplates.cutouts(flat: tool, hog: hog, material: material)
             : [CAMCore.Operation(kind: kind, tool: tool, material: material)]
-        let op = ops[0]
+        var op = ops[0]
+        if let area, let r = job.regions.first(where: { $0.id == area }) {
+            op.areaID = area
+            op.name = "\(kind.displayName) · \(r.name)"
+        }
+        ops[0] = op
         // Dowel holes are always drilled first, while the stock is still where side A will be machined.
         updateJob("Add Operation") { j in if kind == .dowelHoles { j.operations.insert(op, at: 0) } else { j.operations += ops } }
         selection = .operation(op.id)
@@ -678,6 +692,22 @@ final class ProjectModel: ObservableObject {
     }
 
     // MARK: Regions
+
+    /// The area whose "New Operation in This Area" sheet is showing.
+    @Published var areaOperationRequest: AreaRequest? = nil
+
+    /// A box for operations of its own: drawn, then the sheet asks for the operation and the bit.
+    func addArea(min a: V2, max b: V2) {
+        let n = job.regions.filter(\.isArea).count + 1
+        var r = Region(name: "Area \(n)", kind: .machineOnly, min: a, max: b)
+        r.area = true
+        updateJob("Add Area") { $0.regions.append(r) }
+        selection = .region(r.id)
+        mode = .orbit
+        areaOperationRequest = AreaRequest(id: r.id)
+    }
+
+    func operations(inArea id: UUID) -> [CAMCore.Operation] { job.operations.filter { $0.areaID == id } }
 
     func addRegion(min a: V2, max b: V2) {
         let r = Region(name: "Keep-out \(job.regions.count + 1)", min: a, max: b)

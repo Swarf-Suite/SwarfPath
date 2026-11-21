@@ -351,6 +351,15 @@ public struct PostProcessor: Sendable {
                          toolpathIDs: groups.flatMap { $0.map(\.id) })]
     }
 
+    /// Where Z zero is taken, in the words Fretboard Modeller uses ("Z0 = TOP of stock"), so a sender can read it.
+    /// Work zero at the bottom of the stock (stock space Z 0) is the spoilboard the stock sits on.
+    public var zZeroLine: String {
+        // From the origin the coordinates really use: a test cut set to zero on the bed is still zeroed on the bed.
+        if origin.z <= 1e-6 { return "Z0 = SPOILBOARD surface, the bottom of the stock: touch off Z on the spoilboard" }
+        return testCut != nil ? "Z0 = TOP of the test board: touch off Z on the material surface"
+            : "Z0 = TOP of stock: touch off Z on the material surface"
+    }
+
     func emit(groups: [[Toolpath]], part: (Int, Int)?, notes: [String] = []) -> String {
         var lines: [String] = []
         var n = 10
@@ -364,6 +373,8 @@ public struct PostProcessor: Sendable {
             out(comment("TEST CUT - depths limited to: \(t.summary)."))
             out(comment("Not the finished part. Zero Z on the top of the test board."))
         }
+        // In plain words, for whoever sets the machine up (and for senders such as KerfLine, which show it).
+        out(comment(zZeroLine))
         out(comment("Machine: \(profile.name)"))
         out(comment(String(format: "Stock: %.2f x %.2f x %.2f mm", stockSize.x, stockSize.y, stockSize.z)))
         out(comment(String(format: "Work zero (stock space): X%.2f Y%.2f Z%.2f", origin.x, origin.y, origin.z)))

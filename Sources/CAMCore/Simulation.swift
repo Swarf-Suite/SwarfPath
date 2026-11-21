@@ -190,7 +190,7 @@ public struct StockSimulator: Sendable {
     /// Side-B toolpaths are checked on the side-A view when `stockSize` is given; any entry counts on that side.
     public static func keepOutViolations(_ toolpaths: [Toolpath], regions: [Region], stockTop: Double? = nil, stockSize: V3? = nil) -> [String] {
         var out: [String] = []
-        let keepOuts = regions.filter { $0.enabled && $0.kind == .keepOut }
+        let keepOuts = regions.filter { $0.enabled && !$0.isArea && $0.kind == .keepOut }
         guard !keepOuts.isEmpty else { return out }
         for path in toolpaths {
             let below = path.side == .b

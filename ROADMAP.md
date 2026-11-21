@@ -62,8 +62,8 @@ Parallel finishes pick their direction from the surface, and roughing leaves eno
 - **Finish a neck on the FoxAlien** with a flat end mill along X and check the headstock transition for ridges and
   roughing steps.
 - **One direction per operation.** A part with several differently curved areas gets the weighted average direction.
-  Splitting the area into regions with their own direction (with machine-only regions today, by hand) would suit
-  bodies with carves running different ways.
+  Areas (⌥⌘A) now give a region its own finishing operation and direction, by hand; picking the areas
+  automatically would suit bodies with carves running different ways.
 - **Planning roughing generates the finish too.** Roughing is held up only where the finish's own toolpath, simulated,
   doesn't get below it, so the finish is generated twice (about 4 s more on the dome fixture). Caching the finish's
   toolpath in `CAMContext` would save that.
@@ -83,6 +83,11 @@ The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:
   further out for a deep job, the library has to be edited.
 
 ## App
+
+- **Areas on the machine.** Cut a neck blank with a truss-rod slot area (1/8" bit) on the FoxAlien and check the slot
+  is where the box says, and that KerfLine shows the Z-zero badge Swarf's header gives.
+- **Areas from features.** An area is a box drawn by hand. Picking a slot or pocket on the model (or a polygon area)
+  would fit features that aren't rectangles or that run diagonally.
 
 - **Tooltips on key settings.** Hover help on the inspector's and tool library's main parameters (stepover, stepdown,
   stock to leave, boundary, chip load, tabs, trench and so on): what each value does and a sensible range.

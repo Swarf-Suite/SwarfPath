@@ -260,10 +260,11 @@ final class Renderer: NSObject, MTKViewDelegate {
     func setRegions(_ regions: [Region], stockTop: Double, selected: UUID?) {
         var f: [MeshVertex] = [], l: [LineVertex] = []
         for r in regions where r.enabled {
-            let keep = r.kind == .keepOut
+            let keep = r.kind == .keepOut && !r.isArea
             let top = Float(keep ? (r.protectBelowZ ?? stockTop + 2) : stockTop + 2)
             let base: Float = keep && r.protectBelowZ != nil ? 0 : -0.5
-            let col: SIMD4<Float> = keep ? (r.id == selected ? SIMD4(1, 0.6, 0.25, 0.35) : SIMD4(1, 0.25, 0.3, 0.2)) : SIMD4(0.3, 1, 0.5, 0.12)
+            let col: SIMD4<Float> = r.isArea ? SIMD4(0.3, 0.6, 1, 0.16)
+                : keep ? (r.id == selected ? SIMD4(1, 0.6, 0.25, 0.35) : SIMD4(1, 0.25, 0.3, 0.2)) : SIMD4(0.3, 1, 0.5, 0.12)
             let a = SIMD2<Float>(Float(r.min.x), Float(r.min.y)), b = SIMD2<Float>(Float(r.max.x), Float(r.max.y))
             let c = [SIMD3(a.x, a.y, base), SIMD3(b.x, a.y, base), SIMD3(b.x, b.y, base), SIMD3(a.x, b.y, base),
                      SIMD3(a.x, a.y, top), SIMD3(b.x, a.y, top), SIMD3(b.x, b.y, top), SIMD3(a.x, b.y, top)]

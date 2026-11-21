@@ -55,7 +55,7 @@ final class ViewportMTKView: MTKView {
         guard let model, let top = model.placed?.stockTop, let (o, d) = ray(e) else { return nil }
         var best: (Region, Float)? = nil
         for r in model.job.regions where r.enabled {
-            let zTop = Float(r.kind == .keepOut ? (r.protectBelowZ ?? top + 2) : top + 2)
+            let zTop = Float(r.kind == .keepOut && !r.isArea ? (r.protectBelowZ ?? top + 2) : top + 2)
             let lo = SIMD3<Float>(Float(r.min.x), Float(r.min.y), -0.5), hi = SIMD3<Float>(Float(r.max.x), Float(r.max.y), zTop)
             var t0: Float = -.greatestFiniteMagnitude, t1: Float = .greatestFiniteMagnitude
             var hit = true
@@ -82,7 +82,7 @@ final class ViewportMTKView: MTKView {
         didDrag = false
         movingRegion = nil
         guard let model else { return }
-        if model.mode == .drawKeepOut, let top = model.placed?.stockTop, let p = planeHit(e, z: top) {
+        if model.mode.drawsBox, let top = model.placed?.stockTop, let p = planeHit(e, z: top) {
             rectStart = p; rectEnd = p
         }
         // Dragging an already-selected box moves it; anywhere else the drag orbits as usual.
@@ -101,7 +101,7 @@ final class ViewportMTKView: MTKView {
             needsDisplay = true
             return
         }
-        if model.mode == .drawKeepOut, rectStart != nil, let top = model.placed?.stockTop {
+        if model.mode.drawsBox, rectStart != nil, let top = model.placed?.stockTop {
             if let p = planeHit(e, z: top) { rectEnd = p }
             renderer?.setOverlay(rect: (rectStart!, rectEnd!), z: top, tool: nil)
             needsDisplay = true
@@ -125,9 +125,10 @@ final class ViewportMTKView: MTKView {
             return
         }
         switch model.mode {
-        case .drawKeepOut:
+        case .drawKeepOut, .drawArea:
             if let a = rectStart, let b = rectEnd, abs(a.x - b.x) > 0.5, abs(a.y - b.y) > 0.5 {
-                model.addRegion(min: simd_min(a, b), max: simd_max(a, b))
+                if model.mode == .drawArea { model.addArea(min: simd_min(a, b), max: simd_max(a, b)) }
+                else { model.addRegion(min: simd_min(a, b), max: simd_max(a, b)) }
             } else if let r = pickRegion(e) {
                 model.selection = .region(r.id)  // a click (not a drag) on an existing box selects it
             }
@@ -332,7 +333,7 @@ struct ViewportView: NSViewRepresentable {
             if model.mode == .placeDowel, let h = model.dowelHover { marks += model.dowelPreview(at: h).map { ($0.0, $0.1 == nil) } }
             r.setDowels(marks, radius: (model.dowelOperation?.tool.radius ?? 3), stockTop: model.placed?.stockTop ?? 0)
         }
-        if model.mode == .drawKeepOut || model.mode == .placeTab || model.mode == .placeDowel {
+        if model.mode.drawsBox || model.mode == .placeTab || model.mode == .placeDowel {
             if !r.camera.ortho || r.camera.pitch < 1.57 { applyView(.top, r) }
         }
         v.needsDisplay = true

@@ -115,7 +115,7 @@ open build/Swarf.app</pre>
   <table>
     <tr><th style="width:26%">Area</th><th>What it does</th></tr>
     <tr><td><b>Sidebar</b> (left)</td><td><b>Setup</b> (Model &amp; Orientation, Stock &amp; Work Zero, Machine &amp; Output), <b>Regions</b> (keep-out boxes) and the <b>Operations</b> list. Tick or untick an operation to turn it on or off. Right-click to duplicate or delete.</td></tr>
-    <tr><td><b>Viewport</b> (centre)</td><td>The 3D view of the model, the stock and the toolpaths. Use <b>Iso / Top / Front / Right</b> for preset views and the eye menu to show or hide layers. The tool strip down the left side switches between orbit, pick face up, pick face down, draw keep-out and place tabs.</td></tr>
+    <tr><td><b>Viewport</b> (centre)</td><td>The 3D view of the model, the stock and the toolpaths. Use <b>Iso / Top / Front / Right</b> for preset views and the eye menu to show or hide layers. The tool strip down the left side switches between orbit, pick face up, pick face down, draw keep-out, draw area and place tabs. The status bar shows where Z zero goes: <b>TOP of stock</b> or <b>SPOILBOARD</b>. Exported files say the same in their header.</td></tr>
     <tr><td><b>Inspector</b> (right)</td><td>The settings for whatever is selected in the sidebar.</td></tr>
     <tr><td><b>Toolbar</b></td><td>Import STL, Generate (recalculate the toolpaths), Simulate, Export G-code, and show or hide the inspector.</td></tr>
     <tr><td><b>Status bar</b></td><td>Model size, triangle count, a mesh health warning, and the total estimated run time.</td></tr>
@@ -381,6 +381,16 @@ open build/Swarf.app</pre>
   </ol>
   <p>The cutter stays a full radius away from keep-outs in every operation except cutouts. The simulator reports any keep-out violations.
     In a two-sided job, <b>Side</b> chooses whether a box applies to side A, side B or both (see chapter 11).</p>
+
+  <h3>Areas with their own operations</h3>
+  <p>Some features need a different bit from the rest of the part. A truss-rod slot, for example, is narrower than the bit that cuts out the neck.</p>
+  <ol class="steps">
+    <li>Click the dashed-box tool in the viewport strip (or the dashed-box button next to <b>Regions</b>, ⌥⌘A) and drag a box over the feature.</li>
+    <li>In the sheet that opens, choose the operation and the bit, then click <b>Add Operation</b>. It shows the feeds and speeds for that bit in the stock's material. Change them in the new operation's inspector.</li>
+    <li>To add more operations to the area, select it and click <b>New Operation in This Area…</b>, or right-click it in the sidebar. To move an existing operation into an area, use <b>Machine only in</b> in the operation's inspector.</li>
+  </ol>
+  <p>Areas are blue. They limit only their own operations, so the neck's roughing still cuts over the slot. Draw a keep-out as well if the other operations must stay out.
+    An operation whose area is deleted, turned off or set to the other side is refused instead of cutting the whole part.</p>
 
   <h2 style="margin-top:16pt">14 · Simulation and checks</h2>
   <p>Click <b>Simulate</b> (⌘R) to remove material from a virtual block of stock. Use the scrubber or play button to watch the job. Below the scrubber you'll see:</p>

@@ -77,6 +77,7 @@ public enum JobTemplates {
         fin.floorZ = hogged.floorZ
         fin.maxDepth = hogged.maxDepth
         fin.regionIDs = hogged.regionIDs
+        fin.areaID = hogged.areaID
         fin.side = hogged.side
         fin.tabs = hogged.tabs
         fin.cutHoles = hogged.cutHoles

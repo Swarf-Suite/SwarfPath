@@ -76,6 +76,7 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $model.showExport) { ExportView(model: model) }
+        .sheet(item: $model.areaOperationRequest) { req in AreaOperationSheet(model: model, areaID: req.id) }
         .alert("Error", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK") { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
@@ -218,6 +219,7 @@ struct ViewportOverlay: View {
             case .faceUp: return "Click a face to make it the TOP (machined) face"
             case .faceDown: return "Click a face to lay it flat on the bed"
             case .drawKeepOut: return "Drag a rectangle over features that must not be milled"
+            case .drawArea: return "Drag a box over a feature that needs its own bit and feeds, such as a truss-rod slot"
             case .placeTab: return model.selectedOperation?.kind == .cutout ? "Click along the cutout path to add tabs" : "Select a Cutout operation first"
             case .placeDowel: return "Click in the waste to add a mirrored dowel pair; click a hole to remove it"
             case .orbit: return ""
@@ -261,6 +263,7 @@ struct ViewportOverlay: View {
                         .help("\(d.openEdges) open edges, \(d.nonManifoldEdges) non-manifold edges. Heightmap CAM is tolerant of this.")
                 }
             }
+            if model.placed != nil { zZeroBadge }
             if let t = model.job.activeTestCut {
                 Label("Test cut", systemImage: "testtube.2").foregroundStyle(.orange)
                     .help("Test cut mode: \(t.summary). Turn it off in Stock settings for the real job.")
@@ -274,6 +277,21 @@ struct ViewportOverlay: View {
         .font(.callout)
         .padding(.horizontal, 14).padding(.vertical, 6)
         .background(.regularMaterial, in: Capsule())
+    }
+}
+
+extension ViewportOverlay {
+    /// Where Z zero is taken: getting it wrong cuts the whole job too deep or in the air, so it's always on show.
+    var zZeroBadge: some View {
+        let top = model.job.origin.z == .stockTop
+        return Button { model.selection = .stock } label: {
+            Label(top ? "Z zero: TOP of stock" : "Z zero: SPOILBOARD", systemImage: top ? "square.3.layers.3d.top.filled" : "square.3.layers.3d.bottom.filled")
+                .fontWeight(.semibold)
+                .foregroundStyle(top ? Color.accentColor : Color.orange)
+        }
+        .buttonStyle(.plain)
+        .help(top ? "Touch off Z on the top surface of the material. Click to change it under Stock & Work Zero."
+                  : "Touch off Z on the spoilboard the stock sits on (the bottom of the stock). Click to change it under Stock & Work Zero.")
     }
 }
 
