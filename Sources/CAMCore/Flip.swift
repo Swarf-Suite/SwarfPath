@@ -195,7 +195,7 @@ extension CAMContext {
 
     /// Dowel hole centres (stock space). Every hole lands on a hole when the stock is rolled about X.
     ///
-    /// Hand-picked positions are used as they are, each with its mirror. Otherwise Swarf tries one hole on the
+    /// Hand-picked positions are used as they are, each with its mirror. Otherwise SwarfPath tries one hole on the
     /// centre line beyond each end of the part, and failing that the mirrored pair with the most room around it
     /// (for a guitar body, usually either side of the waist). Throws when there is no room or a pick is unusable.
     public func dowelPositions(_ op: Operation) throws -> [V2] {

@@ -120,7 +120,7 @@ public enum STL {
         return Mesh(triangles: tris)
     }
 
-    public static func binaryData(_ mesh: Mesh, header: String = "Swarf STL") -> Data {
+    public static func binaryData(_ mesh: Mesh, header: String = "SwarfPath STL") -> Data {
         var d = Data(count: 84 + mesh.triangles.count * 50)
         d.withUnsafeMutableBytes { raw in
             let h = Array(header.utf8.prefix(80))

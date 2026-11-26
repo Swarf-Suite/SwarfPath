@@ -137,7 +137,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         view.depthStencilPixelFormat = .depth32Float
         view.sampleCount = 4
         view.clearColor = MTLClearColorMake(0.1, 0.1, 0.12, 1)
-        do { try buildPipelines(view) } catch { NSLog("Swarf: pipeline error \(error)"); return nil }
+        do { try buildPipelines(view) } catch { NSLog("SwarfPath: pipeline error \(error)"); return nil }
     }
 
     private func buildPipelines(_ view: MTKView) throws {

@@ -8,7 +8,7 @@ extension UTType {
     static let stlModel = UTType(importedAs: "public.standard-tesselated-geometry-format")
 }
 
-/// A Swarf project: the original STL plus the job description, stored as a package.
+/// A SwarfPath project: the original STL plus the job description, stored as a package.
 final class SwarfDocument: ReferenceFileDocument {
     typealias Snapshot = (job: Job, stl: Data?, name: String)
 
@@ -42,12 +42,12 @@ final class SwarfDocument: ReferenceFileDocument {
         let file = configuration.file
         guard let wrappers = file.fileWrappers,
               let jobData = wrappers["job.json"]?.regularFileContents else {
-            throw Self.corrupt("The project has no job.json, so it is not a complete Swarf project.")
+            throw Self.corrupt("The project has no job.json, so it is not a complete SwarfPath project.")
         }
         do {
             job = try JSONDecoder().decode(Job.self, from: jobData)
         } catch {
-            throw Self.corrupt("The job settings (job.json) could not be read. The project may be damaged or made by a newer version of Swarf.")
+            throw Self.corrupt("The job settings (job.json) could not be read. The project may be damaged or made by a newer version of SwarfPath.")
         }
         let name = String(data: wrappers["name.txt"]?.regularFileContents ?? Data(), encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

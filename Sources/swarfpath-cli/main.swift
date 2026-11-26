@@ -1,13 +1,13 @@
 import CAMCore
 import Foundation
 
-// swarf-cli <model.stl> [--machine id] [--out dir] [--material id] [--quality draft|normal|fine]
+// swarfpath-cli <model.stl> [--machine id] [--out dir] [--material id] [--quality draft|normal|fine]
 //           [--lay-flat] [--rotate x|y|z:deg ...] [--ops facing,roughing,...] [--simulate]
 
 func usage(_ reason: String? = nil) -> Never {
-    if let reason { FileHandle.standardError.write(Data("swarf-cli: \(reason)\n\n".utf8)) }
+    if let reason { FileHandle.standardError.write(Data("swarfpath-cli: \(reason)\n\n".utf8)) }
     print("""
-    usage: swarf-cli <model.stl | project.swarf> [options]
+    usage: swarfpath-cli <model.stl | project.swarf> [options]
       A .swarf project is machined as saved (its operations, regions, stock and origin); options still apply.
       --machine <id>        post-processor (default: workbee-z1plus-rrf); --list-machines to see all
       --material <id>       mdf, plywood, softwood, hardwood, acrylic, hdpe, foam, aluminium
@@ -20,7 +20,7 @@ func usage(_ reason: String? = nil) -> Never {
       --vcarve-source <s>   recesses (default) | silhouette
       --vcarve-depth <mm>   flat-bottom depth limit for V-carving (default: unlimited)
       --out <dir>           output directory (default: current)
-      --send [url]          also send the G-code to KerfLine (default http://localhost:8080)
+      --send [url]          also send the G-code to SwarfGRBL (default http://localhost:8080)
       --simulate            run stock simulation and report gouges/leftover
       --png <file>          write a top-view preview (implies --simulate)
       --png-underside <file> write the back as machined on side B, seen after the flip: leftover blue,
@@ -246,8 +246,8 @@ do {
     }
     if let sendTo {
         let files = postFiles.map { GCodeHub.File(name: $0.name, content: $0.content) }
-        let n = try await GCodeHub.send(files, source: "Swarf", group: post.fileBaseName, address: sendTo.isEmpty ? nil : sendTo)
-        print("Sent \(n) file\(n == 1 ? "" : "s") to KerfLine at \(GCodeHub.resolvedAddress(sendTo.isEmpty ? nil : sendTo))")
+        let n = try await GCodeHub.send(files, source: "SwarfPath", group: post.fileBaseName, address: sendTo.isEmpty ? nil : sendTo)
+        print("Sent \(n) file\(n == 1 ? "" : "s") to SwarfGRBL at \(GCodeHub.resolvedAddress(sendTo.isEmpty ? nil : sendTo))")
     }
     if simulate {
         var sim = StockSimulator(stockSize: s, resolution: StockSimulator.defaultResolution(for: s))
@@ -282,7 +282,7 @@ do {
     }
     print(String(format: "Done in %.2f s", Date().timeIntervalSince(t0)))
     if !out.errors.isEmpty {
-        FileHandle.standardError.write(Data("swarf-cli: \(out.errors.count) operation(s) failed and are missing from the G-code\n".utf8))
+        FileHandle.standardError.write(Data("swarfpath-cli: \(out.errors.count) operation(s) failed and are missing from the G-code\n".utf8))
         exit(1)
     }
 } catch {

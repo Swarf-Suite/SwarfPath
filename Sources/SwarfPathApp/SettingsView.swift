@@ -31,7 +31,7 @@ struct GeneralSettings: View {
             Picker("Default resolution", selection: $quality) {
                 ForEach(ResolutionQuality.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0.rawValue) }
             }
-            TextField("KerfLine address", text: $hubURL, prompt: Text(GCodeHub.defaultURL))
+            TextField("SwarfGRBL address", text: $hubURL, prompt: Text(GCodeHub.defaultURL))
                 .help("Where Send to GRBL Controller delivers G-code. Leave empty if the hub runs on this Mac.")
             LabeledContent("Tool library file") {
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([ToolLibraryStore.fileURL]) }
@@ -212,7 +212,7 @@ struct ToolLibraryView: View {
 
     func exportTools() {
         let p = NSSavePanel()
-        p.nameFieldStringValue = "Swarf Tools.json"
+        p.nameFieldStringValue = "SwarfPath Tools.json"
         guard p.runModal() == .OK, let url = p.url else { return }
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -300,7 +300,7 @@ struct ToolEditor: View {
             } header: {
                 Text("Default cutting data (MDF baseline)")
             } footer: {
-                Text("These are for MDF. When an operation picks up this tool, Swarf scales them for the project's stock material (hardwood: feed and plunge ×0.8, stepdown ×0.75). Existing operations keep their own feeds until you click Reset to tool defaults.")
+                Text("These are for MDF. When an operation picks up this tool, SwarfPath scales them for the project's stock material (hardwood: feed and plunge ×0.8, stepdown ×0.75). Existing operations keep their own feeds until you click Reset to tool defaults.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Notes") { TextEditor(text: $tool.notes).frame(minHeight: 50) }

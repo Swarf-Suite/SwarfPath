@@ -129,7 +129,7 @@ struct EmptyStateView: View {
                 .font(.system(size: 64, weight: .thin))
                 .foregroundStyle(.secondary)
             Text("Drop an STL here").font(.title2.weight(.semibold))
-            Text("Swarf turns 3D models into G-code for your CNC.\nWorks with GRBL, Duet, Mach3 and more.")
+            Text("SwarfPath turns 3D models into G-code for your CNC.\nWorks with GRBL, Duet, Mach3 and more.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             HStack {
@@ -353,7 +353,7 @@ func formatDuration(_ s: Double) -> String {
     return h > 0 ? "\(h) h \(m % 60) min" : "\(m) min \(secs % 60) s"
 }
 
-/// Banner shown over the 3D view when Swarf changed something on the user's behalf.
+/// Banner shown over the 3D view when SwarfPath changed something on the user's behalf.
 struct NoticeBanner: View {
     let notice: ProjectModel.Notice
     let dismiss: () -> Void

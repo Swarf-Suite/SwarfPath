@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>en</string>
-	<key>CFBundleDisplayName</key><string>Swarf</string>
-	<key>CFBundleName</key><string>Swarf</string>
-	<key>CFBundleExecutable</key><string>Swarf</string>
-	<key>CFBundleIdentifier</key><string>io.github.swarfcam.Swarf</string>
+	<key>CFBundleDisplayName</key><string>SwarfPath</string>
+	<key>CFBundleName</key><string>SwarfPath</string>
+	<key>CFBundleExecutable</key><string>SwarfPath</string>
+	<key>CFBundleIdentifier</key><string>io.github.swarf-suite.swarfpath</string>
 	<key>CFBundleIconFile</key><string>AppIcon</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
 	<key>CFBundleShortVersionString</key><string>0.1.0</string>
@@ -18,11 +18,11 @@
 	<dict>
 		<key>NSAllowsLocalNetworking</key><true/>
 	</dict>
-	<key>NSHumanReadableCopyright</key><string>MIT License — Swarf contributors</string>
+	<key>NSHumanReadableCopyright</key><string>MIT License — SwarfPath contributors</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
-			<key>CFBundleTypeName</key><string>Swarf Project</string>
+			<key>CFBundleTypeName</key><string>SwarfPath Project</string>
 			<key>CFBundleTypeRole</key><string>Editor</string>
 			<key>LSHandlerRank</key><string>Owner</string>
 			<key>LSTypeIsPackage</key><true/>
@@ -39,7 +39,7 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key><string>io.github.swarfcam.project</string>
-			<key>UTTypeDescription</key><string>Swarf CAM Project</string>
+			<key>UTTypeDescription</key><string>SwarfPath Project</string>
 			<key>UTTypeConformsTo</key><array><string>com.apple.package</string><string>public.composite-content</string></array>
 			<key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>swarf</string></array></dict>
 		</dict>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Swarf User Guide</title>
+<title>SwarfPath User Guide</title>
 <style>
   @page { size: A4; margin: 16mm 16mm 18mm 16mm; @bottom-center { content: counter(page); font: 8.5pt -apple-system, sans-serif; color: #8a92a3; } }
   @page :first { @bottom-center { content: none; } }
@@ -48,18 +48,18 @@
 <body>
 
 <section class="cover">
-  <h1>Swarf</h1>
+  <h1>SwarfPath</h1>
   <div class="sub">User Guide · Mac-native CAM for hobby CNC</div>
-  <img src="../screenshot-simulation.png" alt="Swarf simulating a carved guitar body">
-  <div class="meta">Free and open source under the MIT License · github.com/mouldiwarp/swarf</div>
+  <img src="../screenshot-simulation.png" alt="SwarfPath simulating a carved guitar body">
+  <div class="meta">Free and open source under the MIT License · github.com/Swarf-Suite/SwarfPath</div>
 </section>
 
 <section class="chapter toc">
   <h2>Contents</h2>
   <ol>
     <li><span>1</span>Before you start</li>
-    <li><span>2</span>Installing Swarf</li>
-    <li><span>3</span>The Swarf window</li>
+    <li><span>2</span>Installing SwarfPath</li>
+    <li><span>3</span>The SwarfPath window</li>
     <li><span>4</span>Importing and orienting a model</li>
     <li><span>5</span>Stock, material and work zero</li>
     <li><span>6</span>Choosing your machine</li>
@@ -80,11 +80,11 @@
 
   <h2 style="margin-top:18pt">1 · Before you start</h2>
   <div class="warn">
-    <p><strong>Swarf is experimental software. You use it, and any G-code it produces, at your own discretion and risk.</strong></p>
+    <p><strong>SwarfPath is experimental software. You use it, and any G-code it produces, at your own discretion and risk.</strong></p>
     <p style="margin:0">It is provided under the MIT License without warranty of any kind. The authors accept no liability for damage to
     machines, tools or materials, or for injury.</p>
   </div>
-  <p>Every time Swarf starts, it shows this notice and asks you to click <b>I Understand</b>. Clicking <b>Quit</b> closes the app.
+  <p>Every time SwarfPath starts, it shows this notice and asks you to click <b>I Understand</b>. Clicking <b>Quit</b> closes the app.
     Make these habits part of every job:</p>
   <ul>
     <li><b>Check every toolpath</b> in the 3D view and the simulator before you export.</li>
@@ -97,21 +97,21 @@
 
 <section class="chapter">
   <figure class="narrow"><img src="../screenshot-disclaimer.png" alt="Launch disclaimer"><figcaption>The notice shown at every launch.</figcaption></figure>
-  <h2 style="margin-top:16pt">2 · Installing Swarf</h2>
-  <p>Swarf runs on <b>macOS 15 or later</b> and builds from source with Xcode 16 or later. Install Xcode (or its command line tools),
+  <h2 style="margin-top:16pt">2 · Installing SwarfPath</h2>
+  <p>SwarfPath runs on <b>macOS 15 or later</b> and builds from source with Xcode 16 or later. Install Xcode (or its command line tools),
     then in Terminal:</p>
-<pre>git clone https://github.com/mouldiwarp/swarf.git
+<pre>git clone https://github.com/Swarf-Suite/SwarfPath.git
 cd swarf
-scripts/build-app.sh          # builds build/Swarf.app
-open build/Swarf.app</pre>
-  <p>You can copy <code>build/Swarf.app</code> to your Applications folder. To update later, run <code>git pull</code> and
+scripts/build-app.sh          # builds build/SwarfPath.app
+open build/SwarfPath.app</pre>
+  <p>You can copy <code>build/SwarfPath.app</code> to your Applications folder. To update later, run <code>git pull</code> and
     <code>scripts/build-app.sh</code> again.</p>
 
 </section>
 
 <section class="chapter">
-  <h2>3 · The Swarf window</h2>
-  <figure><img src="../screenshot-toolpaths.png" alt="Swarf main window"><figcaption>A guitar body with pocket and cutout toolpaths.</figcaption></figure>
+  <h2>3 · The SwarfPath window</h2>
+  <figure><img src="../screenshot-toolpaths.png" alt="SwarfPath main window"><figcaption>A guitar body with pocket and cutout toolpaths.</figcaption></figure>
   <table>
     <tr><th style="width:26%">Area</th><th>What it does</th></tr>
     <tr><td><b>Sidebar</b> (left)</td><td><b>Setup</b> (Model &amp; Orientation, Stock &amp; Work Zero, Machine &amp; Output), <b>Regions</b> (keep-out boxes) and the <b>Operations</b> list. Tick or untick an operation to turn it on or off. Right-click to duplicate or delete.</td></tr>
@@ -126,20 +126,20 @@ open build/Swarf.app</pre>
 <section class="chapter">
   <h2>4 · Importing and orienting a model</h2>
   <ol class="steps">
-    <li>Choose <b>File ▸ Import STL…</b> (⇧⌘I), click <b>Import STL</b> in the toolbar, or drop an STL on the window. Binary and ASCII STL both work. Swarf never changes your STL file.</li>
+    <li>Choose <b>File ▸ Import STL…</b> (⇧⌘I), click <b>Import STL</b> in the toolbar, or drop an STL on the window. Binary and ASCII STL both work. SwarfPath never changes your STL file.</li>
     <li>STL files carry no units. Models smaller than 12 units are assumed to be in inches and scaled ×25.4 automatically. Under <b>Model &amp; Orientation</b> you can set the scale yourself or use the <b>inch → ×25.4</b> button.</li>
     <li>Turn the face you want to machine towards the cutter. Use <b>Lay Flat</b> (⌥⌘L) to put the largest flat face down, <b>Pick Face to Point Up</b> (⌥⌘U) or <b>Pick Face to Lay on Bed</b> (⌥⌘D) and click a face, or rotate in 90° steps about X, Y or Z (⌥⌘X / ⌥⌘Y / ⌥⌘Z).</li>
     <li>Turn on <b>Highlight undercuts</b> to see faces a 3-axis machine can't reach from above. If important detail is highlighted, try a different side.</li>
   </ol>
-  <div class="tip">A <b>Not watertight</b> warning in the status bar is usually fine. Swarf works from a height map, so small holes in the mesh don't matter. Check the 3D view for missing faces all the same.</div>
+  <div class="tip">A <b>Not watertight</b> warning in the status bar is usually fine. SwarfPath works from a height map, so small holes in the mesh don't matter. Check the 3D view for missing faces all the same.</div>
 
   <h2 style="margin-top:16pt">5 · Stock, material and work zero</h2>
   <p>Select <b>Stock &amp; Work Zero</b> in the sidebar.</p>
   <ul>
     <li><b>Material:</b> MDF, plywood, softwood, hardwood, acrylic, HDPE, foam or aluminium. The material scales each tool's default speeds and feeds (for example hardwood: feed and plunge ×0.8, stepdown ×0.75). Changing it later leaves existing operations as they are, and a banner offers to rescale them all.</li>
-    <li><b>Size</b>: <b>Model + margins</b> sizes the stock automatically from the XY margin and any extra on top or below. <b>Exact size</b> takes your real blank: Length (X) left to right, Width (Y) front to back and Depth (Z), its thickness. Switching to Exact size starts from the current stock size, and Swarf warns you if the model doesn't fit.</li>
+    <li><b>Size</b>: <b>Model + margins</b> sizes the stock automatically from the XY margin and any extra on top or below. <b>Exact size</b> takes your real blank: Length (X) left to right, Width (Y) front to back and Depth (Z), its thickness. Switching to Exact size starts from the current stock size, and SwarfPath warns you if the model doesn't fit.</li>
     <li><b>Vertical</b> places the model at the top, centre or bottom of the stock. <b>Offset X / Y</b> shifts it within the blank.</li>
-    <li><b>Work zero</b>: pick one of 9 points on the stock, and set <b>Z zero</b> to the stock top or the bed. Swarf's default is the <b>centre of the left edge, top of stock</b>. Toolpaths start from the work zero, so the preview, the simulation and the G-code all begin at the point you choose.</li>
+    <li><b>Work zero</b>: pick one of 9 points on the stock, and set <b>Z zero</b> to the stock top or the bed. SwarfPath's default is the <b>centre of the left edge, top of stock</b>. Toolpaths start from the work zero, so the preview, the simulation and the G-code all begin at the point you choose.</li>
     <li><b>Safe height</b> is how far above the stock the cutter travels between cuts.</li>
     <li><b>Calculation resolution</b> (draft, normal or fine) trades accuracy for speed. Use draft while you experiment and normal or fine for the real job.</li>
   </ul>
@@ -148,20 +148,20 @@ open build/Swarf.app</pre>
   <p>Select <b>Machine &amp; Output</b> to pick the post-processor. Profiles are included for generic GRBL 1.1 (the usual starting point for any GRBL machine),
     generic RepRapFirmware, the Ooznest WorkBee Z1+, the FoxAlien XE-Pro Ultra (1.5 kW VFD spindle, USB or offline controller), Carbide 3D Shapeoko / Nomad, Sienci LongMill / AltMill, X-Carve, Genmitsu,
     Onefinity, grblHAL / FluidNC, MASSO G3, LinuxCNC, Mach3 / Mach4, UCCNC and Marlin. Each profile knows the machine's work
-    envelope, maximum feeds and spindle range, and Swarf warns you if a job won't fit.</p>
-  <p>You can set the default machine, material and resolution for new projects in <b>Swarf ▸ Settings ▸ General</b>.</p>
+    envelope, maximum feeds and spindle range, and SwarfPath warns you if a job won't fit.</p>
+  <p>You can set the default machine, material and resolution for new projects in <b>SwarfPath ▸ Settings ▸ General</b>.</p>
 </section>
 
 <section class="chapter">
   <h2>7 · The tool library</h2>
-  <figure class="w80"><img src="../screenshot-tools.png" alt="Tool library"><figcaption>Swarf ▸ Settings ▸ Tool Library.</figcaption></figure>
-  <p>Click <b>Edit Tool Library…</b> in the Tool section of any operation's settings, or press ⇧⌘T (Window ▸ Tool Library…). It is also under <b>Swarf ▸ Settings…</b> (⌘,) ▸ <b>Tool Library</b>. Select a tool to edit it, then click <b>Save</b> (⌘S) to keep the changes or <b>Revert</b> to undo them. Until you save, the tool is marked “(edited)” and nothing else changes; if you pick another tool first, Swarf asks whether to save. <b>Add Tool…</b> is at the bottom of the list: it shows a picture of each kind of bit; click one and click <b>Add</b> (or double-click it). Duplicate and Delete are on each tool's right-click menu.
-    <b>Import…</b> reads Fusion 360 tool libraries and Swarf JSON files, and <b>Export…</b> saves your library. <b>Reset…</b> restores the starter set after asking.</p>
+  <figure class="w80"><img src="../screenshot-tools.png" alt="Tool library"><figcaption>SwarfPath ▸ Settings ▸ Tool Library.</figcaption></figure>
+  <p>Click <b>Edit Tool Library…</b> in the Tool section of any operation's settings, or press ⇧⌘T (Window ▸ Tool Library…). It is also under <b>SwarfPath ▸ Settings…</b> (⌘,) ▸ <b>Tool Library</b>. Select a tool to edit it, then click <b>Save</b> (⌘S) to keep the changes or <b>Revert</b> to undo them. Until you save, the tool is marked “(edited)” and nothing else changes; if you pick another tool first, SwarfPath asks whether to save. <b>Add Tool…</b> is at the bottom of the list: it shows a picture of each kind of bit; click one and click <b>Add</b> (or double-click it). Duplicate and Delete are on each tool's right-click menu.
+    <b>Import…</b> reads Fusion 360 tool libraries and SwarfPath JSON files, and <b>Export…</b> saves your library. <b>Reset…</b> restores the starter set after asking.</p>
   <ul>
     <li><b>Type:</b> flat end mill, roughing (hogging) bit, ball nose, bull nose (with corner radius), V-bit (with included angle and tip diameter) or drill.
       <b>Flute style</b> (up-cut, down-cut, compression or straight) is optional; down-cut and straight flutes get a slightly lower recommended chip load.</li>
     <li><b>Geometry:</b> diameter, flutes, flute length (the cutting length), stick-out and shank diameter. A diagram of the bit labels each
-      dimension with a letter that matches the letter beside its field; hover over a field to highlight its dimension. Stick-out is measured from the collet nut to the tip. Swarf warns when a cut would bring the collet within 2 mm of the stock top. A bit whose shank is no wider than its cutter (most end mills, and hogging bits) can cut deeper than its flutes, since the shank follows the cutter down its own slot, so for those the stick-out is the limit. A shank wider than the cutter is kept off the walls above the flutes (see rest machining), and V-bits and drills are warned past their flutes.</li>
+      dimension with a letter that matches the letter beside its field; hover over a field to highlight its dimension. Stick-out is measured from the collet nut to the tip. SwarfPath warns when a cut would bring the collet within 2 mm of the stock top. A bit whose shank is no wider than its cutter (most end mills, and hogging bits) can cut deeper than its flutes, since the shank follows the cutter down its own slot, so for those the stick-out is the limit. A shank wider than the cutter is kept off the walls above the flutes (see rest machining), and V-bits and drills are warned past their flutes.</li>
     <li><b>Default cutting data</b> (an MDF baseline): spindle speed, feed, plunge, stepdown, stepover and ramp angle. The chip-load readout and warnings help you choose sensible values, and the calculator below does it for you.</li>
     <li><b>Tool number:</b> the T number written to the G-code.</li>
   </ul>
@@ -189,7 +189,7 @@ open build/Swarf.app</pre>
       The <b>Cutout</b> after it, with the flat bit, follows it: one ramp down the hogged slot to where it stopped, the rest of the depth with the tabs, then the finishing pass to size.</li>
     <li>Full Processing puts all the hogging work first, then the finishing bits, then the final cutout: one bit swap. If you add operations yourself, <b>Fewer Bit Changes</b> under the operation list does the same grouping. Each bit gets its own G-code file.
       Keep the same XY zero and re-zero Z after the swap; the 3 mm floor skin means a slightly different Z can't leave a step.</li>
-    <li>If you change a pocket's or cutout's tool to a hogging bit yourself, Swarf sets those skins and offers <b>Add Finishing Pass</b> under the tool.
+    <li>If you change a pocket's or cutout's tool to a hogging bit yourself, SwarfPath sets those skins and offers <b>Add Finishing Pass</b> under the tool.
       Changing it back to another bit clears them.</li>
     <li>A hogging bit with a 6 mm shank on a 6 mm cutter can cut deeper than its flutes (35 mm, say): the limit is the stick-out, so enter how far it really sticks out of the collet.</li>
   </ul>
@@ -199,7 +199,7 @@ open build/Swarf.app</pre>
 
 <section class="chapter">
   <h2>8 · Operations</h2>
-  <p>An operation is one machining step with one tool. Click <b>Full Processing</b> in the sidebar to let Swarf look at the model and add what it needs:
+  <p>An operation is one machining step with one tool. Click <b>Full Processing</b> in the sidebar to let SwarfPath look at the model and add what it needs:
     facing if the model sits below the stock top, roughing and finishing for curved tops, pockets for cavities, and a cutout with tabs.
     Or click <b>+</b> to add operations yourself. Operations run in list order. Drag them to reorder.</p>
   <p><b>Auto Plan from Tool Library</b> (sidebar, the <b>+</b> menu, or ⇧⌘A) does the same job with bits chosen from your tool library instead of the ones nearest 6&nbsp;mm.
@@ -209,13 +209,13 @@ open build/Swarf.app</pre>
     concave curves. It orders everything for the fewest bit changes. Nothing changes until you've seen the plan: a sheet lists each bit in the order you'll fit it,
     the operations it runs and why it was chosen, the number of bit changes and the estimated run time, and any warnings (no bit long enough, or a slot narrower than
     your smallest bit). <b>Use This Plan</b> replaces the job's operations, except those limited to areas, which it keeps. Undo with ⌘Z.
-    Each bit becomes its own G-code file; KerfLine runs the files as a group and stops between them for the bit change and Z re-probe.</p>
+    Each bit becomes its own G-code file; SwarfGRBL runs the files as a group and stops between them for the bit change and Z re-probe.</p>
   <p><b>Fewer Bit Changes</b>, under the operation list, reorders the operations so each bit does all its work in one go. A new G-code file starts at every bit change,
     so this also means fewer files, fewer stops to change bits and re-zero Z, and files you can run on different days. The button shows the bit changes now and after
     (“3 → 1”), and greys out when the order is already the best it finds. It never breaks the orders that matter: dowel holes, side A and side B stay in sequence,
     facing keeps its place, a pass that follows another stays after it, 3D finishing stays after the roughing and pockets that clear its area, and the cutout that frees
     the part stays last. Undo with ⌘Z.</p>
-  <p>Swarf recalculates toolpaths automatically when you change a setting or replace the model. To force a fresh calculation of
+  <p>SwarfPath recalculates toolpaths automatically when you change a setting or replace the model. To force a fresh calculation of
     every operation, click <b>Recalculate All Toolpaths</b> under the operation list, <b>Recalculate All</b> in the toolbar, or press ⌘G.</p>
   <table>
     <tr><th style="width:24%">Operation</th><th>Use it for</th></tr>
@@ -232,7 +232,7 @@ open build/Swarf.app</pre>
   <h3>Settings every operation has</h3>
   <ul>
     <li><b>Tool</b> from the library, and its <b>Tool number (T)</b>.</li>
-    <li><b>Feeds &amp; speeds:</b> spindle RPM, feed, plunge, stepdown (the depth of each pass), stepover (the sideways step, as a percentage of the diameter) and ramp angle. <b>Reset to tool defaults</b> reloads them from the library. Library values are for MDF; for other materials Swarf scales them and says so in a banner over the 3D view, with the exact numbers.</li>
+    <li><b>Feeds &amp; speeds:</b> spindle RPM, feed, plunge, stepdown (the depth of each pass), stepover (the sideways step, as a percentage of the diameter) and ramp angle. <b>Reset to tool defaults</b> reloads them from the library. Library values are for MDF; for other materials SwarfPath scales them and says so in a banner over the 3D view, with the exact numbers.</li>
     <li><b>Depth:</b> turn on <b>Limit maximum depth</b> and enter how far below the stock top this operation may cut. It works for every strategy (pockets, roughing, finishing, cutouts, holes, V-carving, facing), and material below the limit is left. In test-cut mode the shallower of the two limits wins.</li>
     <li><b>Area:</b> boundary (whole stock, model silhouette plus a margin, or inside the model only) and an optional custom bottom height.
       With <i>inside the model only</i>, a hole that goes right through the part (a pickup slot, a pot hole) is not a wall: near a wall,
@@ -247,7 +247,7 @@ open build/Swarf.app</pre>
     follows it with a smaller bit that cuts <i>only</i> what it left, so a rest pass takes minutes rather than re-cutting the
     whole pocket.</p>
   <ul>
-    <li>Select the pocket or 3D roughing operation and choose <b>+ ▸ Rest Clearing</b>. Swarf adds a copy right after it with
+    <li>Select the pocket or 3D roughing operation and choose <b>+ ▸ Rest Clearing</b>. SwarfPath adds a copy right after it with
       the largest flat bit in your library that is clearly smaller, set to follow that operation. Change the bit in the copy's Tool section.</li>
     <li>Or, in any pocket, 3D roughing or 3D finishing operation, pick what it follows under <b>Rest machining ▸ Only cut what was left by</b>.
       A small ball nose can clean up concave curves after a larger one this way.</li>
@@ -257,10 +257,10 @@ open build/Swarf.app</pre>
     <li><b>A larger tool…</b> is the older way, kept for projects made with it: the rest pass assumes that tool cut with this operation's own area, depth and stock to leave,
       plus <b>It left extra stock</b>, so keep them matched.</li>
     <li>It works one corner or slot at a time, from the top down, and stays down between levels instead of lifting out each time.</li>
-    <li>After a simulation, Swarf suggests a rest pass when a pocket or roughing operation leaves material that a smaller
+    <li>After a simulation, SwarfPath suggests a rest pass when a pocket or roughing operation leaves material that a smaller
       bit in your library could reach, with an <b>Add Rest Clearing</b> button.</li>
   </ul>
-  <div class="tip">Small bits usually have a shank wider than the cutter: a 0.9 mm bit on a 1/8" or 4 mm shank. Swarf keeps
+  <div class="tip">Small bits usually have a shank wider than the cutter: a 0.9 mm bit on a 1/8" or 4 mm shank. SwarfPath keeps
     that shank off the walls above the flutes, so beside a wall the bit only reaches its flute length below the top of the
     wall. Anything deeper is left, and the operation's warnings say how much. Enter your bits' real flute length and shank
     diameter in the tool library; the starter values are typical, not measured.</div>
@@ -318,7 +318,7 @@ open build/Swarf.app</pre>
 <section class="chapter">
   <h2>11 · Two-sided machining (flip)</h2>
   <p>Some parts need work on both faces, such as a guitar body with a carved top and control cavities in the back, or a neck.
-    Swarf machines them in four steps. The stock is located by two dowels, so the X/Y zero never changes.</p>
+    SwarfPath machines them in four steps. The stock is located by two dowels, so the X/Y zero never changes.</p>
   <ol class="steps">
     <li><b>Dowel holes.</b> With the stock clamped down, two 6 mm holes are pecked through the stock and 5 mm into the spoilboard.
       They come in pairs mirrored across the stock's centre line (front to back), so each hole lands on a dowel again after the flip.</li>
@@ -332,7 +332,7 @@ open build/Swarf.app</pre>
     <li>Turn on <b>Machine both sides (flip)</b> under <b>Stock &amp; Work Zero</b>. A <b>Dowel holes</b> operation is added at the top of the list.</li>
     <li>Select the <b>Dowel holes</b> operation to set where the holes go (see <i>Placing the dowel holes</i> below).</li>
     <li>In the Dowel holes inspector, <b>Into spoilboard</b> (5 mm by default) and <b>Clearance from part</b> set the hole depth and how far the holes stay
-      from the cutout. The holes are as deep as the stock plus the spoilboard depth. Swarf refuses holes deeper than the cutter's flute length, so the collet can't reach the stock;
+      from the cutout. The holes are as deep as the stock plus the spoilboard depth. SwarfPath refuses holes deeper than the cutter's flute length, so the collet can't reach the stock;
       with a 50 mm cutter, 45 mm stock is about the limit.</li>
     <li>Set an operation's <b>Side</b> to <b>B</b> in its inspector, or right-click it and choose <b>Move to Side B</b>. Pockets, 3D roughing and finishing,
       and drilling can run on side B. Cutouts, facing and V-carving can't: the part is already cut out from side A.</li>
@@ -341,7 +341,7 @@ open build/Swarf.app</pre>
     <li>The sidebar lists the operations under <b>Dowel holes</b>, <b>Side A</b> and <b>Side B</b>, in the order they run.</li>
   </ul>
   <h3>Placing the dowel holes</h3>
-  <p>By default the placement is <b>Automatic</b>. Swarf puts one hole on the centre line in the waste beyond each end of the part. If
+  <p>By default the placement is <b>Automatic</b>. SwarfPath puts one hole on the centre line in the waste beyond each end of the part. If
     the part fills the stock length, it puts a mirrored pair where the gap between the part and the stock edge is widest, such as either side of a guitar
     body's waist. If neither fits, it says there is no room: increase the <b>XY margin</b> or the stock size, or place the holes yourself.</p>
   <p>To place them yourself, select the Dowel holes operation and click <b>Place by Clicking</b> (or the ◎ button in the viewport tool palette).
@@ -417,7 +417,7 @@ open build/Swarf.app</pre>
   <ol class="steps">
     <li>Click <b>Export G-code</b> (⌘E). Check the machine, the list of files, the stock size, the zero point and the run time.</li>
     <li>Read the preview. The header lists the stock, the work zero, each tool and the run time.</li>
-    <li>Type a name in <b>File name</b> if you don't want the model's name. The file list shows the result, and the project remembers the name for next time. Click <b>Export…</b> and choose a folder. <b>Setup Sheet (PDF)…</b> saves a printable sheet with the stock, the zero point, a top view and the tool list. <b>Copy G-code</b> puts the program on the clipboard. Tick <b>Show G-code</b> to see the first 400 lines of the selected file; it is off by default, and Swarf remembers your choice.</li>
+    <li>Type a name in <b>File name</b> if you don't want the model's name. The file list shows the result, and the project remembers the name for next time. Click <b>Export…</b> and choose a folder. <b>Setup Sheet (PDF)…</b> saves a printable sheet with the stock, the zero point, a top view and the tool list. <b>Copy G-code</b> puts the program on the clipboard. Tick <b>Show G-code</b> to see the first 400 lines of the selected file; it is off by default, and SwarfPath remembers your choice.</li>
   </ol>
   <p>Machines without a tool changer (GRBL and Duet profiles by default) get <b>one file per tool</b>, numbered in the order they run. Other machines get a single file with tool-change commands where the controller supports them.</p>
 
@@ -446,11 +446,11 @@ open build/Swarf.app</pre>
   </table>
 
   <h2 style="margin-top:16pt">18 · Command line</h2>
-  <p><code>swarf-cli</code> runs the same engine without the app:</p>
+  <p><code>swarfpath-cli</code> runs the same engine without the app:</p>
 <pre>swift build -c release
-.build/release/swarf-cli model.stl --out ./gcode --simulate --png preview.png
-.build/release/swarf-cli model.stl --ops pocket,drill,cutout --material plywood
-.build/release/swarf-cli --list-machines</pre>
+.build/release/swarfpath-cli model.stl --out ./gcode --simulate --png preview.png
+.build/release/swarfpath-cli model.stl --ops pocket,drill,cutout --material plywood
+.build/release/swarfpath-cli --list-machines</pre>
   <p>Options: <code>--machine</code>, <code>--material</code>, <code>--quality draft|normal|fine</code>, <code>--lay-flat</code>, <code>--rotate x:90</code>,
     <code>--ops</code> (facing, pocket, roughing, parallelFinish, waterlineFinish, vcarve, drill, cutout), <code>--keepout x0,y0,x1,y1</code>,
     <code>--vcarve-source recesses|silhouette</code>, <code>--vcarve-depth</code>, <code>--margin</code>,
@@ -470,8 +470,8 @@ open build/Swarf.app</pre>
     <tr><td>Undo / Redo</td><td>⌘Z / ⇧⌘Z</td><td>Move / delete selected keep-out</td><td>Arrows / ⌫</td></tr>
     <tr><td>Iso / Top / Front / Right view</td><td>⌘0 / ⌘1 / ⌘2 / ⌘3</td><td>Bottom view (side B)</td><td>⌘4</td></tr>
   </table>
-  <p style="color:var(--muted); font-size:9pt; margin-top:18pt">Swarf is free software under the MIT License, provided "as is", without warranty of any kind.
-    Source, issues and contributions: github.com/mouldiwarp/swarf.</p>
+  <p style="color:var(--muted); font-size:9pt; margin-top:18pt">SwarfPath is free software under the MIT License, provided "as is", without warranty of any kind.
+    Source, issues and contributions: github.com/Swarf-Suite/SwarfPath.</p>
 </section>
 
 </body>

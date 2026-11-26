@@ -1,18 +1,24 @@
-# Swarf
+# SwarfPath
 
-**Free, open-source, Mac-native CAM for hobby CNC.** Swarf turns an STL into G-code. It writes
+**Free, open-source, Mac-native CAM for hobby CNC.** SwarfPath turns an STL into G-code. It writes
 G-code for GRBL machines (including grblHAL and FluidNC), Duet / RepRapFirmware, Mach3 / 4, LinuxCNC and
 more, with a post-processor for each popular hobby machine.
+
+SwarfPath is part of the **[Swarf Suite](https://github.com/Swarf-Suite)**: SwarfPath (3D CAM) and
+**[SwarfEngrave](https://github.com/Swarf-Suite/SwarfEngrave)** (V-carve design, planned) make the G-code, and
+**[SwarfGRBL](https://github.com/Swarf-Suite/SwarfGRBL)** sends it to the machine. SwarfPath was called **Swarf**
+until November 2026; its first launch brings over Swarf's settings and tool library, and `.swarf` projects open as
+before.
 
 ![A guitar body with pocket, drilling and cutout toolpaths](docs/screenshot-toolpaths.png)
 
 > [!WARNING]
-> **Swarf is experimental software. You use it at your own discretion and risk.** Check every
+> **SwarfPath is experimental software. You use it at your own discretion and risk.** Check every
 > toolpath before you run it, air-cut new jobs with Z zeroed above the stock, and try new jobs on
-> inexpensive material such as MDF or scrap first. Swarf is provided under the MIT License
+> inexpensive material such as MDF or scrap first. SwarfPath is provided under the MIT License
 > **without warranty of any kind**. The app asks you to acknowledge this every time it starts.
 
-📘 **[User guide (PDF)](docs/Swarf-User-Guide.pdf)**: step-by-step instructions from importing an STL to running the job.
+📘 **[User guide (PDF)](docs/SwarfPath-User-Guide.pdf)**: step-by-step instructions from importing an STL to running the job.
 
 ## Contents
 
@@ -32,7 +38,7 @@ more, with a post-processor for each popular hobby machine.
 ## What it does
 
 - **Import and orient** a model: rotate in 90° steps, click the face that should point up or lie on
-  the bed, or let Swarf lay the largest flat face down. Faces a 3-axis machine can't reach are
+  the bed, or let SwarfPath lay the largest flat face down. Faces a 3-axis machine can't reach are
   highlighted.
 - **Set up the stock and work zero.** The default is the centre of the left edge, top of
   stock.
@@ -43,9 +49,9 @@ more, with a post-processor for each popular hobby machine.
   tool library: the biggest flat end mill and ball nose that reach deep enough, then smaller bits only where
   the bigger ones leave material in corners, slots or tight curves. It shows the bits in order, why each was
   chosen, the bit changes and the run time before changing anything. Each bit is its own G-code file, so
-  KerfLine runs them in order with a bit change between them.
+  SwarfGRBL runs them in order with a bit change between them.
 - **Machine both sides** of a part, such as a guitar body with a carved top and control cavities in the
-  back. Swarf drills dowel holes through the stock into the spoilboard, machines and cuts out side A,
+  back. SwarfPath drills dowel holes through the stock into the spoilboard, machines and cuts out side A,
   then machines side B after you roll the stock over onto dowels. Each step is exported as its own file.
 - **Rest machining**: follow a big bit with a small one that cuts only what the big one couldn't reach (square
   inside corners, narrow slots, tight curves), in a few minutes instead of re-cutting the whole pocket.
@@ -54,7 +60,7 @@ more, with a post-processor for each popular hobby machine.
 - **Areas with their own operations**: draw a box (⌥⌘A) over a feature that needs a different bit, such as a
   truss-rod slot in a neck, and add operations that machine only inside it, each with its own bit and feeds.
 - **Says where Z zero goes**: a badge in the status bar (TOP of stock or SPOILBOARD), and the same in plain words in
-  each G-code file's header, which KerfLine shows before you start.
+  each G-code file's header, which SwarfGRBL shows before you start.
 - **Simulate** material removal, with a gouge check, a leftover-stock heat map, keep-out checks and a
   run-time estimate.
 - **Export** G-code for your machine, plus a printable PDF setup sheet.
@@ -70,16 +76,16 @@ more, with a post-processor for each popular hobby machine.
 
 ## Getting started
 
-Swarf runs on **macOS 15 or later** and builds from source with Xcode 16 or later (Swift 6).
+SwarfPath runs on **macOS 15 or later** and builds from source with Xcode 16 or later (Swift 6).
 
 ```bash
-git clone https://github.com/mouldiwarp/swarf.git
+git clone https://github.com/Swarf-Suite/SwarfPath.git
 cd swarf
-scripts/build-app.sh          # builds build/Swarf.app
-open build/Swarf.app
+scripts/build-app.sh          # builds build/SwarfPath.app
+open build/SwarfPath.app
 ```
 
-You can copy `build/Swarf.app` to `/Applications`. To run the engine tests:
+You can copy `build/SwarfPath.app` to `/Applications`. To run the engine tests:
 
 ```bash
 swift test -c release
@@ -103,7 +109,7 @@ Cutouts stop 8 mm below the stock top (the thin skin left holds the part), pocke
 stop at 4 mm, and drilled holes at 4 mm. The depths can be changed. Exported files are named `_TEST` and
 say so in their header. Zero Z on the top of the test board.
 
-The [user guide](docs/Swarf-User-Guide.pdf) covers each step in detail.
+The [user guide](docs/SwarfPath-User-Guide.pdf) covers each step in detail.
 
 ## Operations
 
@@ -127,13 +133,13 @@ leaves the stock frame and the tabs alone. Keep-outs can apply to side A, side B
 left. Choose **+ ▸ Rest Clearing**, or pick an earlier operation under *Only cut what was left by*: the rest pass then
 models that operation exactly (its tool, area, depth and stock to leave). It works one corner or slot at a time from the
 top down. Small bits often have a shank wider than the cutter (a 0.9 mm bit on a 1/8" or 4 mm shank):
-Swarf keeps that shank off the walls above the flutes, so beside a wall the bit only reaches its flute length below the
-top of the wall, and it tells you how much it had to leave. After a simulation, Swarf suggests a rest pass when a
+SwarfPath keeps that shank off the walls above the flutes, so beside a wall the bit only reaches its flute length below the
+top of the wall, and it tells you how much it had to leave. After a simulation, SwarfPath suggests a rest pass when a
 clearing operation leaves material a smaller bit in your library could reach.
 
 **Areas.** Some features need their own bit: a truss-rod slot is narrower than the bit that cuts out the neck.
 Choose **Toolpaths ▸ Draw Area for Its Own Operation** (⌥⌘A) or the dashed-box button above the region list, and drag
-a box over the feature. Swarf asks for the operation (pocket, roughing, finishing, cutout and so on) and the bit,
+a box over the feature. SwarfPath asks for the operation (pocket, roughing, finishing, cutout and so on) and the bit,
 shows the feeds and speeds for that bit in the stock's material, and adds the operation limited to the box; change its
 feeds in its inspector as usual. An area's inspector lists its operations and adds more (**New Operation in This
 Area…**, also in its right-click menu), and any operation can be moved into an area with *Machine only in*. Areas are
@@ -143,7 +149,7 @@ other side is refused rather than cutting the whole part with the small bit.
 
 **Where Z zero goes.** The status bar shows **Z zero: TOP of stock** or **Z zero: SPOILBOARD** (orange) for the job's
 origin; click it to change it in the stock settings. Each exported file's header says the same in words
-(`Z0 = TOP of stock: touch off Z on the material surface`), and KerfLine shows it beside the file before it runs.
+(`Z0 = TOP of stock: touch off Z on the material surface`), and SwarfGRBL shows it beside the file before it runs.
 
 **Fewer Bit Changes**, under the operation list, regroups the operations so each bit does all its work in one go (one
 G-code file per bit change), keeping the orders that matter: rest passes after what they follow, 3D finishing after
@@ -154,18 +160,18 @@ also set climb or conventional cutting, stock to leave, which keep-out regions a
 
 ## Tool library
 
-Click **Edit Tool Library…** in an operation's Tool section (or press ⇧⌘T, or open **Swarf ▸ Settings ▸ Tool Library**) to add, edit, duplicate or delete tools. Flat, roughing (hogging), ball nose,
+Click **Edit Tool Library…** in an operation's Tool section (or press ⇧⌘T, or open **SwarfPath ▸ Settings ▸ Tool Library**) to add, edit, duplicate or delete tools. Flat, roughing (hogging), ball nose,
 bull nose, V-bit and drill tools are supported, picked from a dialog with a picture of each. Each tool stores its diameter, flute length,
-stick-out, flute style and default cutting data, with a labelled diagram of the bit, and Swarf shows the chip load with warnings when values look
+stick-out, flute style and default cutting data, with a labelled diagram of the bit, and SwarfPath shows the chip load with warnings when values look
 risky. A **Feeds & Speeds calculator** (in the library and in each operation) aims for a chip load in the recommended
 range for the bit and material, corrects for chip thinning at light side cuts, and caps the feed at the machine's
 maximum, slowing the spindle to keep the chip load when that limit decides. It also allows for a ball or bull nose
 cutting shallower than its corner (a smaller cutting circle, a thinner chip). With a hogging bit in the library, pockets,
 cutouts and 3D roughing use it: pockets leave 0.3 mm on walls and 3 mm on floors, cutouts stop 3 mm above the stock
 bottom, and a flat bit finishes in a separate file (so Z can be re-zeroed after the swap). Change a pocket's or cutout's
-tool to a hogging bit and Swarf offers the finishing pass. A bit whose shank is no wider than its cutter may cut below its
-flutes; its stick-out (collet clearance) is the limit. The library is saved in `~/Library/Application Support/Swarf/tools.json`. You can import
-Fusion 360 tool libraries, and import or export Swarf's own JSON.
+tool to a hogging bit and SwarfPath offers the finishing pass. A bit whose shank is no wider than its cutter may cut below its
+flutes; its stick-out (collet clearance) is the limit. The library is saved in `~/Library/Application Support/SwarfPath/tools.json`. You can import
+Fusion 360 tool libraries, and import or export SwarfPath's own JSON.
 
 The starter library includes 6 mm flat and ball-nose compression cutters, smaller flat and ball
 cutters, a bull nose, 60° and 45° V-bits, and 2 mm, 1 mm and 0.9 mm flat bits on 1/8" and 4 mm shanks for rest
@@ -199,28 +205,28 @@ first cut.
 
 ## Command line
 
-`swarf-cli` runs the same engine without the app, which is handy for batch jobs and debugging.
+`swarfpath-cli` runs the same engine without the app, which is handy for batch jobs and debugging.
 
 ```bash
 swift build -c release
-.build/release/swarf-cli model.stl --out ./gcode --simulate --png preview.png
-.build/release/swarf-cli MyGuitar.swarf --out ./gcode --simulate   # a saved project, machined as saved
-.build/release/swarf-cli --list-machines
+.build/release/swarfpath-cli model.stl --out ./gcode --simulate --png preview.png
+.build/release/swarfpath-cli MyGuitar.swarf --out ./gcode --simulate   # a saved project, machined as saved
+.build/release/swarfpath-cli --list-machines
 ```
 
 Given a `.swarf` project, the CLI uses its saved operations, regions, stock and work zero.
 
-### Sending to KerfLine
+### Sending to SwarfGRBL
 
-[KerfLine](https://github.com/mouldiwarp/kerfline) is a networked GRBL sender. In the Export
+[SwarfGRBL](https://github.com/Swarf-Suite/SwarfGRBL) is a networked GRBL sender. In the Export
 dialog, **Send to GRBL Controller** delivers the G-code straight to its library instead of saving files.
 Multi-file jobs (one file per tool, or side A and side B) arrive grouped, in run order. The address
 defaults to `http://localhost:8080` (the hub running on this Mac). Change it in **Settings → General**.
 From the command line:
 
 ```bash
-.build/release/swarf-cli model.stl --machine foxalien-xe-pro-ultra --out ./gcode --send
-.build/release/swarf-cli model.stl --out ./gcode --send http://studio.local:8080
+.build/release/swarfpath-cli model.stl --machine foxalien-xe-pro-ultra --out ./gcode --send
+.build/release/swarfpath-cli model.stl --out ./gcode --send http://studio.local:8080
 ```
 
 Options: `--machine <id>`, `--material <id>`, `--quality draft|normal|fine`, `--lay-flat`,
@@ -263,4 +269,4 @@ V-carving, editable post-processors and a G-code panel linked to the 3D view.
 
 ## License
 
-[MIT](LICENSE) © Swarf contributors. Provided "as is", without warranty of any kind.
+[MIT](LICENSE) © SwarfPath contributors. Provided "as is", without warranty of any kind.

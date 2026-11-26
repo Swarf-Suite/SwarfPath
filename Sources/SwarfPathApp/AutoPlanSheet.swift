@@ -23,7 +23,7 @@ struct AutoPlanSheet: View {
             Text("Auto Plan").font(.headline)
             Text("\(runs.count) bit\(runs.count == 1 ? "" : "s") · \(changes) bit change\(changes == 1 ? "" : "s") · about \(duration(proposal.seconds))")
                 .font(.title3.weight(.semibold))
-            Text("Each bit is its own G-code file. KerfLine runs them in order and stops between them to change the bit and re-probe Z.")
+            Text("Each bit is its own G-code file. SwarfGRBL runs them in order and stops between them to change the bit and re-probe Z.")
                 .font(.callout).foregroundStyle(.secondary)
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {

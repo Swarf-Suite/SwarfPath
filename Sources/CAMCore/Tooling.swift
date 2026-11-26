@@ -352,8 +352,8 @@ public enum ToolImportError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .notAToolLibrary: return "This is not a Swarf or Fusion 360 tool library (.json)."
-        case .noUsableTools: return "The library has no tools that Swarf can use (flat, ball, bull nose, V-bit or drill)."
+        case .notAToolLibrary: return "This is not a SwarfPath or Fusion 360 tool library (.json)."
+        case .noUsableTools: return "The library has no tools that SwarfPath can use (flat, ball, bull nose, V-bit or drill)."
         }
     }
 }

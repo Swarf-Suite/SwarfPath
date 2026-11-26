@@ -1,18 +1,18 @@
-# Contributing to Swarf
+# Contributing to SwarfPath
 
 Thanks for helping make free CAM better on the Mac!
 
 ## Getting started
 
 ```bash
-git clone https://github.com/mouldiwarp/swarf.git   # or your fork
+git clone https://github.com/Swarf-Suite/SwarfPath.git   # or your fork
 cd swarf
 swift test -c release        # engine tests (release mode keeps CAM tests fast)
-scripts/build-app.sh debug   # builds build/Swarf.app
-open build/Swarf.app
+scripts/build-app.sh debug   # builds build/SwarfPath.app
+open build/SwarfPath.app
 ```
 
-You can also open `Package.swift` in Xcode and run the `Swarf` scheme. Note that document types only
+You can also open `Package.swift` in Xcode and run the `SwarfPath` scheme. Note that document types only
 register when the app runs from the bundle produced by `scripts/build-app.sh`.
 
 ## Layout
@@ -20,14 +20,14 @@ register when the app runs from the bundle produced by `scripts/build-app.sh`.
 | Path | What lives there |
 |---|---|
 | `Sources/CAMCore` | The UI-free engine: STL I/O, orientation, height-field CAM, post-processors, simulation |
-| `Sources/SwarfApp` | The SwiftUI + Metal macOS app |
-| `Sources/swarf-cli` | Headless command-line front end (great for debugging toolpaths) |
+| `Sources/SwarfPathApp` | The SwiftUI + Metal macOS app |
+| `Sources/swarfpath-cli` | Headless command-line front end (great for debugging toolpaths) |
 | `Tests/CAMCoreTests` | Swift Testing suites |
 | `Tests/Fixtures` | Small STL models used by tests and CI |
 
 ## Debugging toolpaths
 
-`swarf-cli model.stl --png preview.png --png-no-paths` renders the simulated stock with gouges in red
+`swarfpath-cli model.stl --png preview.png --png-no-paths` renders the simulated stock with gouges in red
 and leftover material in blue. Drop `--png-no-paths` to overlay the toolpaths.
 
 ## Adding a machine / post-processor

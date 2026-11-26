@@ -362,7 +362,7 @@ struct RegionInspector: View {
                         ForEach(RegionSides.allCases, id: \.self) { Text($0.displayName).tag($0) }
                     }
                 } footer: {
-                    Text("Clamps usually move when the stock is flipped: give each side its own keep-outs. Draw side-B regions in this same top view, over the side-B toolpaths as they are shown here; Swarf mirrors them onto the back.")
+                    Text("Clamps usually move when the stock is flipped: give each side its own keep-outs. Draw side-B regions in this same top view, over the side-B toolpaths as they are shown here; SwarfPath mirrors them onto the back.")
                         .font(.caption)
                 }
             }
@@ -882,7 +882,7 @@ struct OperationInspector: View {
                     Label(String(format: "Hole %d: X%.1f Y%.1f", i + 1, m.0.x, m.0.y), systemImage: m.1 ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(m.1 ? .green : .red)
                 }
-                Text("Each hole you click gets a partner mirrored across the stock's centre line (front to back), so the pair lines up again after the stock is rolled over. Green spots are clear of the part and the cutout; red ones aren't and can't be used. Click a hole again to remove it. With none placed, Swarf puts one beyond each end of the part, or the best mirrored pair if the ends have no room.")
+                Text("Each hole you click gets a partner mirrored across the stock's centre line (front to back), so the pair lines up again after the stock is rolled over. Green spots are clear of the part and the cutout; red ones aren't and can't be used. Click a hole again to remove it. With none placed, SwarfPath puts one beyond each end of the part, or the best mirrored pair if the ends have no room.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         case .cutout:

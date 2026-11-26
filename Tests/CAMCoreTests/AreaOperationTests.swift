@@ -129,7 +129,7 @@ import simd
         #expect(!(try JSONDecoder().decode(Region.self, from: JSONSerialization.data(withJSONObject: r)).isArea))
     }
 
-    /// The header says in words where Z zero is, as Fretboard Modeller's files do, so KerfLine can show it.
+    /// The header says in words where Z zero is, as Fretboard Modeller's files do, so SwarfGRBL can show it.
     @Test func theHeaderSaysWhereZZeroIs() throws {
         let s = setup()
         let ctx = s.ctx

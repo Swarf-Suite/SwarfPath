@@ -2,7 +2,7 @@ import CAMCore
 import Foundation
 import SwiftUI
 
-/// App-wide tool library persisted to ~/Library/Application Support/Swarf/tools.json.
+/// App-wide tool library persisted to ~/Library/Application Support/SwarfPath/tools.json.
 @MainActor
 final class ToolLibraryStore: ObservableObject {
     static let shared = ToolLibraryStore()
@@ -13,7 +13,7 @@ final class ToolLibraryStore: ObservableObject {
 
     static var directory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent("Swarf", isDirectory: true)
+        let dir = base.appendingPathComponent("SwarfPath", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

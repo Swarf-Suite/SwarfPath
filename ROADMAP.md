@@ -2,6 +2,18 @@
 
 Open work and loose ends. Remove an item when it's done; add new ones as they come up.
 
+
+## The Swarf Suite
+
+SwarfPath (was Swarf) now lives at [Swarf-Suite/SwarfPath](https://github.com/Swarf-Suite/SwarfPath), beside
+[SwarfGRBL](https://github.com/Swarf-Suite/SwarfGRBL) (the sender, was KerfLine) and
+[SwarfEngrave](https://github.com/Swarf-Suite/SwarfEngrave) (planned: V-carve design and G-code).
+
+- ✅ Renamed: app, bundle id (`io.github.swarf-suite.swarfpath`), targets, `swarfpath-cli`, the user guide. Settings
+  and the tool library move across on first launch; the `.swarf` document type is unchanged.
+- ⬜ Share the engine with SwarfEngrave: move what both need from `CAMCore` (tools and tool library, post-processors,
+  `GCodeHub`, the V-carve toolpath code) into a package both depend on, as SwarfEngrave's roadmap describes.
+
 ## Two-sided machining
 
 Two-sided (flip) machining is in: dowel holes, side A, a roll about X, then side B (`Flip.swift`). Loose ends:
@@ -106,24 +118,24 @@ The chip-load calculator is in (`FeedsCalculator.swift`). Loose ends:
 ## App
 
 - **Auto Plan on the machine.** Run an Auto Plan job with a rest pass (e.g. the slotted neck board: 1/4" clearing, 1/8"
-  rest) on the FoxAlien as a KerfLine file group, and check the run-time estimate against the real time.
+  rest) on the FoxAlien as a SwarfGRBL file group, and check the run-time estimate against the real time.
 - **Auto Plan choices.** It takes the biggest bit that reaches. A setting to prefer a bit (or to leave bits out of
   planning, such as ones that are worn) would help once real libraries grow.
 
 - **Areas on the machine.** Cut a neck blank with a truss-rod slot area (1/8" bit) on the FoxAlien and check the slot
-  is where the box says, and that KerfLine shows the Z-zero badge Swarf's header gives.
+  is where the box says, and that SwarfGRBL shows the Z-zero badge SwarfPath's header gives.
 - **Areas from features.** An area is a box drawn by hand. Picking a slot or pocket on the model (or a polygon area)
   would fit features that aren't rectangles or that run diagonally.
 
 - **Tooltips on key settings.** Hover help on the inspector's and tool library's main parameters (stepover, stepdown,
   stock to leave, boundary, chip load, tabs, trench and so on): what each value does and a sensible range.
 - **Machine control: a built-in G-code sender with a web UI.** A modern sender in the spirit of Universal G-code
-  Sender, served by Swarf's own web server so any browser on the local network (e.g. a MacBook in the garage) can drive
-  the machine. The Mac running Swarf talks to the FoxAlien (GRBL) over its USB serial port. Needs:
+  Sender, served by SwarfPath's own web server so any browser on the local network (e.g. a MacBook in the garage) can drive
+  the machine. The Mac running SwarfPath talks to the FoxAlien (GRBL) over its USB serial port. Needs:
   - serial link to GRBL (USB CDC/CH340 driver, 115200 baud), streaming with character-counting flow control, status
     polling (`?`), feed hold / resume / soft reset, alarms and unlock;
   - jog, homing, set work zero (X/Y/Z, probe), spindle and feed/spindle overrides;
-  - load the files Swarf exported (one per tool) and run them in order, with a tool-change pause between them;
+  - load the files SwarfPath exported (one per tool) and run them in order, with a tool-change pause between them;
   - live position, progress, and a toolpath preview in the browser;
   - LAN access with some protection (a pairing code or password; only one controlling client at a time), since
     anything that can reach the page can move the machine.

@@ -2,7 +2,7 @@ import Foundation
 
 /// "Auto Plan": the Full Processing template with bits chosen for the part from the tool library instead of the ones
 /// nearest 6 mm, smaller bits added only where the bigger ones leave real material (rest passes), and the result
-/// ordered for the fewest bit changes. Each bit becomes its own G-code file, which KerfLine runs as a group with a
+/// ordered for the fewest bit changes. Each bit becomes its own G-code file, which SwarfGRBL runs as a group with a
 /// bit-change stop between files.
 public struct AutoPlan: Sendable {
     /// The operations in run order.

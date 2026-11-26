@@ -3,8 +3,13 @@ import CAMCore
 import SwiftUI
 
 @main
-struct SwarfApp: App {
+struct SwarfPathApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
+    init() {
+        // Before the tool library or any setting is read.
+        Migration.run()
+    }
 
     var body: some Scene {
         DocumentGroup(newDocument: { SwarfDocument() }) { file in
@@ -39,9 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 // MARK: Launch disclaimer
 
 enum Disclaimer {
-    static let title = "Swarf is experimental software"
+    static let title = "SwarfPath is experimental software"
     static let message = """
-    Swarf is experimental, open-source software provided under the MIT License, without warranty of any kind. \
+    SwarfPath is experimental, open-source software provided under the MIT License, without warranty of any kind. \
     You use it, and any G-code it produces, entirely at your own discretion and risk.
 
     • Check every toolpath and G-code file before you run it.

@@ -2,8 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Swarf is a Mac-native (macOS 15+, Swift 6, SwiftPM only, no Xcode project) CAM app that turns an STL into
+SwarfPath is a Mac-native (macOS 15+, Swift 6, SwiftPM only, no Xcode project) CAM app that turns an STL into
 G-code. Its default target is the Ooznest WorkBee Z1+ on Duet/RepRapFirmware. MIT licensed.
+
+It was called Swarf until November 2026 and is part of the Swarf Suite (GitHub org `Swarf-Suite`, with SwarfGRBL
+at `~/src/kerfline` and SwarfEngrave). Internal names such as `SwarfDocument`, the `Swarf*` developer-hook defaults
+keys, the `.swarf` extension and the `io.github.swarfcam.project` type stay as they are on purpose.
 
 Open work and loose ends are listed in `ROADMAP.md`. Check it when starting work, and update it when an item
 is done or a new one comes up.
@@ -14,14 +18,14 @@ is done or a new one comes up.
 swift test -c release                                  # all engine tests (always use release: CAM tests are slow in debug)
 swift test -c release --filter DrillTests              # one suite
 swift test -c release --filter DrillTests/pecksMatchingHoles   # one test
-scripts/build-app.sh [debug|release]                   # builds build/Swarf.app (needed for document types to register)
-swift build -c release && .build/release/swarf-cli Tests/Fixtures/dome_relief.stl --out out --simulate
-.build/release/swarf-cli model.stl --png preview.png [--png-no-paths]   # top view: gouges red, leftover blue
-.build/release/swarf-cli ~/Desktop/Project.swarf --out out --simulate   # reproduce a user's project exactly
-.build/release/swarf-cli Project.swarf --png-underside back.png         # side B result: leftover blue, gouges red
-.build/release/swarf-cli --help                        # all flags: --machine, --ops, --flip, --rest, --keepout, --test-cut, ...
-.build/release/swarf-cli --list-machines
-scripts/make-guide.sh                                  # docs/guide/user-guide.html -> docs/Swarf-User-Guide.pdf (headless Chrome)
+scripts/build-app.sh [debug|release]                   # builds build/SwarfPath.app (needed for document types to register)
+swift build -c release && .build/release/swarfpath-cli Tests/Fixtures/dome_relief.stl --out out --simulate
+.build/release/swarfpath-cli model.stl --png preview.png [--png-no-paths]   # top view: gouges red, leftover blue
+.build/release/swarfpath-cli ~/Desktop/Project.swarf --out out --simulate   # reproduce a user's project exactly
+.build/release/swarfpath-cli Project.swarf --png-underside back.png         # side B result: leftover blue, gouges red
+.build/release/swarfpath-cli --help                        # all flags: --machine, --ops, --flip, --rest, --keepout, --test-cut, ...
+.build/release/swarfpath-cli --list-machines
+scripts/make-guide.sh                                  # docs/guide/user-guide.html -> docs/SwarfPath-User-Guide.pdf (headless Chrome)
 ```
 
 CI (`.github/workflows/ci.yml`) runs release tests, builds the app bundle, and smoke-tests the CLI on
@@ -33,8 +37,8 @@ Three targets share one engine:
 
 - **`Sources/CAMCore`**: UI-free engine. Release builds use `-Ounchecked`, so out-of-bounds bugs are not
   trapped there; tests in release won't catch them either.
-- **`Sources/SwarfApp`**: SwiftUI + Metal app (Swift 5 language mode).
-- **`Sources/swarf-cli`**: headless front end over the same engine; the easiest way to debug toolpaths.
+- **`Sources/SwarfPathApp`**: SwiftUI + Metal app (Swift 5 language mode).
+- **`Sources/swarfpath-cli`**: headless front end over the same engine; the easiest way to debug toolpaths.
 
 ### Engine pipeline (height-field CAM)
 
@@ -138,8 +142,8 @@ Three targets share one engine:
 9. `PostProcessor` (Post.swift) writes the files. Machine dialects are data: a `MachineProfile` in
    `MachineProfile.builtIn`. The WorkBee profile splits output into one file per tool. `ArcFitter` turns
    linear moves into G2/G3. Names and comments are sanitised to ASCII so they can't inject G-code, and
-   file names stay inside the chosen folder. `GCodeHub` (GCodeHub.swift) sends the files to a KerfLine hub (the
-   GRBL sender, github.com/mouldiwarp/kerfline, localhost by default) as one group; the CLI's `--send [address]`
+   file names stay inside the chosen folder. `GCodeHub` (GCodeHub.swift) sends the files to a SwarfGRBL hub (the
+   GRBL sender, github.com/Swarf-Suite/SwarfGRBL, localhost by default) as one group; the CLI's `--send [address]`
    does the same.
 
 ### App
@@ -152,7 +156,7 @@ Three targets share one engine:
   margin), and per-operation toolpath caching keyed on the operation's JSON (`opKey`). If you add a
   `Job`-level field that affects geometry, add it to `makeContextKey`. `SimRunner` drives the animated
   simulation.
-- `ToolLibraryStore` persists the tool library to `~/Library/Application Support/Swarf/tools.json`.
+- `ToolLibraryStore` persists the tool library to `~/Library/Application Support/SwarfPath/tools.json`.
   Operations embed a copy of their `Tool`; open projects pick up library edits, but each operation keeps its
   own feeds.
 
@@ -171,7 +175,7 @@ Three targets share one engine:
 
 ## Running the app during development
 
-The user often has `build/Swarf.app` open with unsaved work. Never `killall`/`pkill` Swarf. Launch your own
+The user often has `build/SwarfPath.app` open with unsaved work. Never `killall`/`pkill` SwarfPath. Launch your own
 copy, track its PID, and kill only that PID. Take screenshots with `scripts/snap.sh <pid> <out.png>`, which
 captures by PID rather than window title. Launch with `-ApplePersistenceIgnoreState YES` (plus `-SwarfOpen <copy>`,
 `-SwarfSkipDisclaimer YES`, `-SwarfDumpState <file>`): without it your copy restores the user's open documents and can
