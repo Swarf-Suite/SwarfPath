@@ -19,6 +19,7 @@ swift test -c release                                  # all engine tests (alway
 swift test -c release --filter DrillTests              # one suite
 swift test -c release --filter DrillTests/pecksMatchingHoles   # one test
 scripts/build-app.sh [debug|release]                   # builds build/SwarfPath.app (needed for document types to register)
+scripts/release.sh 0.2                                 # a release in dist/ (universal, signed, notarized dmg + zip + appcast); CI runs it on a v* tag
 swift build -c release && .build/release/swarfpath-cli Tests/Fixtures/dome_relief.stl --out out --simulate
 .build/release/swarfpath-cli model.stl --png preview.png [--png-no-paths]   # top view: gouges red, leftover blue
 .build/release/swarfpath-cli ~/Desktop/Project.swarf --out out --simulate   # reproduce a user's project exactly
@@ -29,7 +30,8 @@ scripts/make-guide.sh                                  # docs/guide/user-guide.h
 ```
 
 CI (`.github/workflows/ci.yml`) runs release tests, builds the app bundle, and smoke-tests the CLI on
-`dome_relief.stl` and `pocket_plate.stl` (with `--machine grbl`). There is no linter.
+`dome_relief.stl` and `pocket_plate.stl` (with `--machine grbl`). There is no linter. Releases (`.github/workflows/release.yml`, Developer ID signing, notarization, Sparkle updates
+from GitHub Releases) are described in `docs/RELEASING.md`; only a signed and notarized build is ever published.
 
 ## Architecture
 

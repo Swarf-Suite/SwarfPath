@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         NSWindow.allowsAutomaticWindowTabbing = true
         Disclaimer.presentAtLaunch()
+        _ = Updates.controller
         // Developer hook: -SwarfOpen <path> opens a file at launch (used for automated screenshots).
         if let path = UserDefaults.standard.string(forKey: "SwarfOpen") {
             PendingImports.open([URL(fileURLWithPath: path)])
@@ -87,6 +88,7 @@ struct SwarfCommands: Commands {
     @Environment(\.openSettings) var openSettings
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) { CheckForUpdatesButton() }
         CommandGroup(after: .importExport) {
             Button("Import STL…") { model?.presentImport() }
                 .keyboardShortcut("i", modifiers: [.command, .shift])

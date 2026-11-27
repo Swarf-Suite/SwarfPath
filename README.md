@@ -76,11 +76,19 @@ before.
 
 ## Getting started
 
-SwarfPath runs on **macOS 15 or later** and builds from source with Xcode 16 or later (Swift 6).
+SwarfPath runs on **macOS 15 or later**, on Apple silicon and Intel Macs.
+
+**Download** [SwarfPath.dmg](https://github.com/Swarf-Suite/SwarfPath/releases/latest/download/SwarfPath.dmg),
+open it and drag SwarfPath to Applications. It's signed with a Developer ID and notarized by Apple, so it opens
+without warnings. It checks for updates by itself, or use **SwarfPath → Check for Updates…**.
+
+### Building from source
+
+With Xcode 16 or later (Swift 6):
 
 ```bash
 git clone https://github.com/Swarf-Suite/SwarfPath.git
-cd swarf
+cd SwarfPath
 scripts/build-app.sh          # builds build/SwarfPath.app
 open build/SwarfPath.app
 ```

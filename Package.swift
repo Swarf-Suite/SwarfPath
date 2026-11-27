@@ -9,6 +9,9 @@ let package = Package(
         .executable(name: "SwarfPath", targets: ["SwarfPathApp"]),
         .executable(name: "swarfpath-cli", targets: ["swarfpath-cli"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
+    ],
     targets: [
         .target(
             name: "CAMCore",
@@ -16,7 +19,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "SwarfPathApp",
-            dependencies: ["CAMCore"],
+            dependencies: ["CAMCore", .product(name: "Sparkle", package: "Sparkle")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(name: "swarfpath-cli", dependencies: ["CAMCore"]),
