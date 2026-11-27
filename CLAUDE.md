@@ -6,7 +6,7 @@ SwarfPath is a Mac-native (macOS 15+, Swift 6, SwiftPM only, no Xcode project) C
 G-code. Its default target is the Ooznest WorkBee Z1+ on Duet/RepRapFirmware. MIT licensed.
 
 It was called Swarf until November 2026 and is part of the Swarf Suite (GitHub org `Swarf-Suite`, with SwarfGRBL
-at `~/src/kerfline` and SwarfEngrave). Internal names such as `SwarfDocument`, the `Swarf*` developer-hook defaults
+at `~/src/SwarfGRBL` and SwarfEngrave). Internal names such as `SwarfDocument`, the `Swarf*` developer-hook defaults
 keys, the `.swarf` extension and the `io.github.swarfcam.project` type stay as they are on purpose.
 
 Open work and loose ends are listed in `ROADMAP.md`. Check it when starting work, and update it when an item
